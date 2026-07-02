@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<meta name="color-scheme" content="dark light" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="description" content="djinn -- Sri Lanka's wish-granting AI shopping concierge for Kapruka." />
+		<title>djinn</title>
+		<link rel="icon" href="/brand/djinn-favicon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+		<link rel="icon" href="/brand/djinn-favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+		<script>
+			// Apply the user's saved theme BEFORE first paint to avoid a flash of
+			// the default theme. The profile is persisted at djinn:profile as
+			// { v: 2, data: { ..., themeId } }. Setting <html data-theme> here
+			// lets the CSS cascade pick the right palette immediately; the
+			// ProfileStore re-applies (idempotently) once hydrated.
+			(function () {
+				try {
+					var raw = localStorage.getItem("djinn:profile");
+					var data = raw && JSON.parse(raw);
+					var themeId = data && data.data && data.data.themeId;
+					if (themeId) document.documentElement.dataset.theme = themeId;
+				} catch (e) { /* ignore — default Chocolate theme applies */ }
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

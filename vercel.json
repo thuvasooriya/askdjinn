@@ -1,0 +1,6 @@
+{
+  "buildCommand": "bun run build",
+  "framework": "sveltekit",
+  "regions": ["sin1"],
+  "bunVersion": "1.x"
+}

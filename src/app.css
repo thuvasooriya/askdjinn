@@ -1,0 +1,384 @@
+/* ── Fonts ─────────────────────────────────────────────── */
+/* Playfair Display — display/heading font (ampcode.com uses Sagittaire Display;
+   Playfair is the closest open variable font with similar high-contrast serif
+   character. Replace with Sagittaire Display files in static/fonts/ if owned.) */
+@import "@fontsource-variable/playfair-display";
+
+
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   All colors, typography, radii, and shadows as CSS custom properties.
+   Chocolate is the default (registered in @theme below); other themes
+   override these values via [data-theme="..."] blocks.
+   Components reference tokens via var(--...) or Tailwind utilities
+   that resolve to these tokens. No hardcoded values in .svelte files.
+   ────────────────────────────────────────────────────────────── */
+@theme {
+  /* ── Typography ── */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Playfair Display Variable", "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: "SF Mono", "Fira Code", monospace;
+
+  /* Semantic font-size scale (for raw CSS font-size: values).
+     Tailwind's own text-xs/sm/base/lg/xl/2xl utilities keep their
+     defaults; these --fs-* tokens are for bespoke <style> blocks. */
+  --fs-xs: 0.625rem;    /* 10px — micro badges */
+  --fs-sm: 0.6875rem;   /* 11px — tiny labels */
+  --fs-md: 0.75rem;     /* 12px — body default */
+  --fs-lg: 0.875rem;    /* 14px — larger body */
+  --fs-xl: 1rem;        /* 16px — emphasis */
+  --fs-2xl: 1.5rem;     /* 24px — headings */
+
+  /* ── Corner Radius ── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-full: 9999px;
+
+  /* ── Shadows (static) ── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  --shadow-float: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.15), 0 8px 10px rgba(0,0,0,0.04);
+
+  /* ── Colors — Chocolate (default palette) ── */
+  --color-background: hsl(20 12% 6%);
+  --color-surface: hsl(20 12% 9%);
+  --color-surface-elevated: hsl(20 12% 12%);
+  --color-foreground: hsl(40 15% 96%);
+  --color-muted: hsl(20 10% 15%);
+  --color-muted-foreground: hsl(40 5% 58%);
+  --color-border: hsl(20 10% 18%);
+  --color-primary: hsl(22 90% 56%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-accent: hsl(28 85% 58%);
+  --color-accent-foreground: hsl(0 0% 100%);
+  --color-destructive: hsl(0 62% 48%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-success: hsl(142 55% 42%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(38 85% 48%);
+  --color-warning-foreground: hsl(0 0% 100%);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DERIVED TOKENS (auto-adapt to active theme via color-mix)
+   These reference --color-primary/accent so they follow any
+   [data-theme] switch automatically — no per-theme duplication.
+   ────────────────────────────────────────────────────────────── */
+:root {
+  --color-border-subtle: color-mix(in srgb, var(--color-border) 40%, transparent);
+  --shadow-glow:
+    0 0 24px color-mix(in srgb, var(--color-primary) 18%, transparent),
+    0 0 64px color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --shadow-glow-strong:
+    0 0 32px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  --gradient-primary:
+    linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  --gradient-glow:
+    radial-gradient(ellipse at 50% 0%,
+      color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, transparent 60%);
+  /* Back-compat alias (one component still references --radius) */
+  --radius: var(--radius-lg);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEMES
+   Each [data-theme] block re-defines only the 17 semantic colors.
+   Derived tokens (glow/gradient) auto-adapt via color-mix above.
+   html[data-theme] (specificity 0,1,1) beats :root (0,1,0).
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Catppuccin Latte (light) ─────────────────────────────── */
+[data-theme="catppuccin-latte"] {
+  color-scheme: light;
+  --color-background: #eff1f5;
+  --color-surface: #e6e9ef;
+  --color-surface-elevated: #dce0e8;
+  --color-foreground: #4c4f69;
+  --color-muted: #ccd0da;
+  --color-muted-foreground: #6c6f85;
+  --color-border: #bcc0cc;
+  --color-primary: #8839ef;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #1e66f5;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #d20f39;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #40a02b;
+  --color-success-foreground: #ffffff;
+  --color-warning: #df8e1d;
+  --color-warning-foreground: #ffffff;
+}
+
+/* ── Catppuccin Frappé ────────────────────────────────────── */
+[data-theme="catppuccin-frappe"] {
+  --color-background: #292c3c;
+  --color-surface: #303446;
+  --color-surface-elevated: #414559;
+  --color-foreground: #c6d0f5;
+  --color-muted: #51576d;
+  --color-muted-foreground: #a5adce;
+  --color-border: #51576d;
+  --color-primary: #ca9ee6;
+  --color-primary-foreground: #303446;
+  --color-accent: #8caaee;
+  --color-accent-foreground: #303446;
+  --color-destructive: #e78284;
+  --color-destructive-foreground: #303446;
+  --color-success: #a6d189;
+  --color-success-foreground: #303446;
+  --color-warning: #e5c890;
+  --color-warning-foreground: #303446;
+}
+
+/* ── Catppuccin Macchiato ─────────────────────────────────── */
+[data-theme="catppuccin-macchiato"] {
+  --color-background: #1e2030;
+  --color-surface: #24273a;
+  --color-surface-elevated: #363a4f;
+  --color-foreground: #cad3f5;
+  --color-muted: #494d64;
+  --color-muted-foreground: #a5adcb;
+  --color-border: #494d64;
+  --color-primary: #c6a0f6;
+  --color-primary-foreground: #24273a;
+  --color-accent: #8aadf4;
+  --color-accent-foreground: #24273a;
+  --color-destructive: #ed8796;
+  --color-destructive-foreground: #24273a;
+  --color-success: #a6da95;
+  --color-success-foreground: #24273a;
+  --color-warning: #eed49f;
+  --color-warning-foreground: #24273a;
+}
+
+/* ── Catppuccin Mocha ─────────────────────────────────────── */
+[data-theme="catppuccin-mocha"] {
+  --color-background: #181825;
+  --color-surface: #1e1e2e;
+  --color-surface-elevated: #313244;
+  --color-foreground: #cdd6f4;
+  --color-muted: #45475a;
+  --color-muted-foreground: #a6adc8;
+  --color-border: #45475a;
+  --color-primary: #cba6f6;
+  --color-primary-foreground: #1e1e2e;
+  --color-accent: #89b4fa;
+  --color-accent-foreground: #1e1e2e;
+  --color-destructive: #f38ba8;
+  --color-destructive-foreground: #1e1e2e;
+  --color-success: #a6e3a1;
+  --color-success-foreground: #1e1e2e;
+  --color-warning: #f9e2af;
+  --color-warning-foreground: #1e1e2e;
+}
+
+/* ── TokyoNight Night ─────────────────────────────────────── */
+[data-theme="tokyonight-night"] {
+  --color-background: #16161e;
+  --color-surface: #1a1b26;
+  --color-surface-elevated: #24283b;
+  --color-foreground: #c0caf5;
+  --color-muted: #292e42;
+  --color-muted-foreground: #a9b1d6;
+  --color-border: #3b4261;
+  --color-primary: #7aa2f7;
+  --color-primary-foreground: #1a1b26;
+  --color-accent: #bb9af7;
+  --color-accent-foreground: #1a1b26;
+  --color-destructive: #f7768e;
+  --color-destructive-foreground: #1a1b26;
+  --color-success: #9ece6a;
+  --color-success-foreground: #1a1b26;
+  --color-warning: #e0af68;
+  --color-warning-foreground: #1a1b26;
+}
+
+/* ── TokyoNight Day (light) ───────────────────────────────── */
+[data-theme="tokyonight-day"] {
+  color-scheme: light;
+  --color-background: #e1e2e7;
+  --color-surface: #d4d7e2;
+  --color-surface-elevated: #c8cbd6;
+  --color-foreground: #3760bf;
+  --color-muted: #c8cbd6;
+  --color-muted-foreground: #6172b0;
+  --color-border: #a8adc2;
+  --color-primary: #2e7de9;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #9854f1;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #f52a65;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #587539;
+  --color-success-foreground: #ffffff;
+  --color-warning: #8c6c3e;
+  --color-warning-foreground: #ffffff;
+}
+
+/* ─── Base Layer ─────────────────────────────────────────────── */
+@layer base {
+  * {
+    border-color: var(--color-border);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body, button, select, input[type="submit"] {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  input[type="text"],
+  input[type="tel"],
+  input[type="date"],
+  textarea,
+  .bubble-text,
+  .prose {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* ─── Component Classes ──────────────────────────────────────── */
+/* Reusable semantic classes so .svelte files stay clean.        */
+@layer components {
+  /* Glass effects — derive from surface so they follow any theme */
+  .glass {
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+  }
+  /* Gradient */
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-glow { background: var(--gradient-glow); }
+  /* Shadows */
+  .shadow-float { box-shadow: var(--shadow-float); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+
+  /* Safe areas */
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-muted) 60%, var(--color-foreground));
+}
+
+/* ─── Animations ─────────────────────────────────────────────── */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slide-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes glow-pulse { 0%, 100% { box-shadow: var(--shadow-glow); } 50% { box-shadow: var(--shadow-glow-strong); } }
+@keyframes cart-bump { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.9); } }
+@keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.08); opacity: 1; } }
+@keyframes live-ring-pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.12); } }
+
+/* Note: Orb keyframes are component-scoped in AgentOrb.svelte */
+
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+.animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-slide-in-right { animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-scale-in { animation: scale-in 0.2s ease-out; }
+.animate-glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+.cart-bump { animation: cart-bump 0.5s ease-out; }
+
+.fly-clone {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  border-radius: var(--radius-full);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease-in;
+}
+
+/* ─── Markdown ───────────────────────────────────────────────── */
+.md-content strong { font-weight: 700; color: var(--color-foreground); }
+.md-content em { font-style: italic; }
+.md-content .md-inline-code {
+  background: var(--color-muted);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85em;
+  font-family: var(--font-mono);
+}
+.md-content .md-pre {
+  background: var(--color-muted);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.md-content .md-pre code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--color-foreground);
+}
+.md-content .md-ul { list-style: none; padding-left: 0.75rem; margin: 0.25rem 0; }
+.md-content .md-ul li { position: relative; padding-left: 0.75rem; margin: 0.15rem 0; }
+.md-content .md-ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  opacity: 0.7;
+}
+.md-content .md-ol-item { padding-left: 0.25rem; margin: 0.15rem 0; }
+.md-content a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ─── Accessibility ──────────────────────────────────────────── */
+button, a, textarea, input, select { touch-action: manipulation; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+textarea:focus, input:focus, select:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
