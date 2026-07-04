@@ -518,43 +518,45 @@
   <!-- Actions (hidden for step 0 which has its own CTA inside the step) -->
   {#if step > 0}
     <div class="actions-row">
-      <!-- Back (all steps > 0) -->
-      <Button variant="ghost" size="lg" onclick={() => step--}>
-        <ArrowLeft class="h-4 w-4" /> Back
-      </Button>
+      <div class="buttons-row">
+        <!-- Back (all steps > 0) -->
+        <Button variant="ghost" size="md" onclick={() => step--}>
+          <ArrowLeft class="h-4 w-4" /> Back
+        </Button>
 
-      {#if step === 1}
-        <!-- Step 1: skip (dull) + next -->
-        <Button variant="ghost" size="md" class="skip-btn flex-1" onclick={skip}>
-          <SkipForward class="h-4 w-4" /> Skip
-        </Button>
-        <Button variant="primary" size="md" class="flex-1" onclick={next}>
-          Next <ArrowRight class="h-4 w-4" />
-        </Button>
-      {:else if step === 2}
-        <!-- Step 2: let's go -->
-        <Button variant="primary" size="md" class="flex-1" onclick={next}>
-          <Sparkles class="h-4 w-4" /> Let's go
-        </Button>
-      {:else}
-        <!-- Final step (mic): finish -->
-        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
-          <Sparkles class="h-4 w-4" /> Make a wish!
-        </Button>
+        {#if step === 1}
+          <!-- Step 1: skip (dull) + next -->
+          <Button variant="ghost" size="md" class="skip-btn flex-1" onclick={skip}>
+            <SkipForward class="h-4 w-4" /> Skip
+          </Button>
+          <Button variant="primary" size="md" class="flex-1" onclick={next}>
+            Next <ArrowRight class="h-4 w-4" />
+          </Button>
+        {:else if step === 2}
+          <!-- Step 2: let's go -->
+          <Button variant="primary" size="md" class="flex-1" onclick={next}>
+            <Sparkles class="h-4 w-4" /> Let's go
+          </Button>
+        {:else}
+          <!-- Final step (mic): finish -->
+          <Button variant="primary" size="md" class="flex-1" onclick={next}>
+            <Sparkles class="h-4 w-4" /> Make a wish!
+          </Button>
+        {/if}
+      </div>
+
+      {#if step === 1 || step === 2}
+        <p class="reconfig-note">You can reconfigure these anytime via "Re-run onboarding" in the options menu.</p>
       {/if}
 
-    {#if step === 1 || step === 2}
-      <p class="reconfig-note">You can reconfigure these anytime via "Re-run onboarding" in the options menu.</p>
-    {/if}
-
-    <!-- Progress dots -->
-    <div class="progress-dots">
-      {#each Array(totalSteps - 1) as _, i (i)}
-        <div class="progress-dot {i === step - 1 ? 'progress-dot--active' : ''}"></div>
-      {/each}
+      <!-- Progress dots -->
+      <div class="progress-dots">
+        {#each Array(totalSteps - 1) as _, i (i)}
+          <div class="progress-dot {i === step - 1 ? 'progress-dot--active' : ''}"></div>
+        {/each}
+      </div>
     </div>
-  </div>
-{/if}
+  {/if}
 </div>
 
 </div>
@@ -1057,13 +1059,19 @@
     margin: 0;
     line-height: 1.4;
   }
-
-  /* ── Actions ── */
   .actions-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .buttons-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 1.25rem;
+    width: 100%;
+    max-width: 28rem;
   }
   .actions-row > :global(button) {
     border-radius: 0.5rem;

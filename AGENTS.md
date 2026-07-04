@@ -69,3 +69,10 @@ jj --no-pager log -r 'main..@'         # see diff from main
 # ... when ready to publish ...
 jj --no-pager bookmark set main -r @-   # update main
 ```
+
+## SVELTE AUTO-FIXING
+
+When template structure issues arise (unclosed elements, wrong nesting), use
+`mcp__svelte_autofixer` to diagnose — it reports the exact line and issue.
+For structural fixes the autofixer can't apply directly (e.g. missing closing
+tags), use the error output to guide manual repair.
