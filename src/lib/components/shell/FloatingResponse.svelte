@@ -6,10 +6,11 @@
   import { useChat } from "$lib/stores/chat.svelte";
   import { useProfile } from "$lib/stores/profile.svelte";
   import { renderMarkdown } from "$lib/markdown";
-  import { Maximize2, AlertCircle, Wrench, Sparkles } from "@lucide/svelte";
+  import { Maximize2, ChevronDown, AlertCircle, Wrench, Sparkles } from "@lucide/svelte";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
   import { browser } from "$app/environment";
   import { fly, fade } from "svelte/transition";
+  import { onDestroy } from "svelte";
 
   const conv = useConversation();
   const ui = useUI();
@@ -21,6 +22,7 @@
   const reducedMotion = $derived(browser && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let dismissedTurnId = $state<string | null>(null);
   let bodyEl = $state<HTMLElement>();
+  let containerEl = $state<HTMLDivElement>();
   const lastTurn = $derived(conv.lastTurn);
   const lastTurnId = $derived(lastTurn?.id ?? null);
 
@@ -35,6 +37,54 @@
 
   const liveState = $derived(liveVoice.state);
   const liveActive = $derived(liveState !== "idle" && liveState !== "error");
+
+  // ── Collapse state ──────────────────────────────────────────────────────────
+  // collapsed = small center pill (status or agent name)
+  // expanded = full response bubble
+  let collapsed = $state(true);
+  let collapseTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Auto-expand when there's ongoing activity (streaming, pending tools)
+  $effect(() => {
+    const _stream = lastTurn?.streaming;
+    const _pending = hasPendingToolCall;
+    if (_stream || _pending) {
+      collapsed = false;
+    }
+  });
+
+  // Auto-collapse after 6s idle (no streaming, no pending tools)
+  $effect(() => {
+    const _stream = lastTurn?.streaming;
+    const _pending = hasPendingToolCall;
+
+    clearTimeout(collapseTimer);
+    if (collapsed) return;
+    if (_stream || _pending) return;
+
+    collapseTimer = setTimeout(() => {
+      collapsed = true;
+    }, 6000);
+  });
+
+  // Collapse when user clicks outside the bubble container
+  function onDocumentClick(e: MouseEvent) {
+    if (!containerEl) return;
+    if (containerEl.contains(e.target as Node)) return;
+    collapsed = true;
+  }
+
+  $effect(() => {
+    if (!browser) return;
+    document.addEventListener("click", onDocumentClick);
+    return () => document.removeEventListener("click", onDocumentClick);
+  });
+
+  function expand() { collapsed = false; }
+  function collapse() { collapsed = true; }
+
+  onDestroy(() => clearTimeout(collapseTimer));
+  // ── ─────────────────────────────────────────────────────────────────────────
 
   // ── Tool-call grouping ─────────────────────────────────────────────────────
   // Group consecutive tool-call parts into bursts. Each burst renders as a
@@ -137,32 +187,31 @@
 
   function expandChat() {
     ui.open("conversation" as import("$lib/panel-contracts").PanelType, { kind: "static" });
-    dismissedTurnId = lastTurnId;
+    collapsed = true;
   }
 </script>
 
 {#if !ui.conversationVisible && (visible || statusText) && !ui.askUser}
-  {@const showBubble = isAssistant && (text || lastTurn?.streaming)}
-  <div class="floating-bubble-container" transition:fly={{ y: 20, duration: reducedMotion ? 0 : 250 }}>
-    <!-- Status pill (only when bubble is NOT visible) -->
-    {#if statusText && !showBubble}
-      <div class="status-pill glass shadow-md flex items-center gap-1.5">
-        {#if isError}
-          <AlertCircle class="h-3 w-3 text-red-500" />
-        {:else}
-          <BrailleSpinner name="helix" size="sm" label={statusText} />
+  <div bind:this={containerEl} class="floating-bubble-container" transition:fly={{ y: 20, duration: reducedMotion ? 0 : 250 }}>
+    {#if collapsed}
+      <!-- Collapsed pill — tap to expand -->
+      <button type="button" class="status-pill glass shadow-md flex items-center gap-1.5 ctrl-btn" onclick={expand}>
+        {#if statusText}
+          {#if isError}
+            <AlertCircle class="h-3 w-3 text-red-500" />
+          {:else}
+            <BrailleSpinner name="helix" size="sm" label={statusText} />
+          {/if}
         {/if}
-        <span class="status-text">{statusText}</span>
-      </div>
-    {/if}
-
-    <!-- Bubble -->
-    {#if showBubble}
+        <span class="status-text">{statusText ?? profile.agent?.name ?? 'Agent'}</span>
+      </button>
+    {:else}
+      <!-- Expanded bubble -->
       <div class="response-bubble glass shadow-xl flex flex-col">
         <!-- Header controls -->
         <div class="bubble-header flex items-center justify-between gap-4">
           <span class="bubble-agent-name">{profile.agent?.name ?? 'Agent'}</span>
-          
+
           <!-- Status pill centered in the bubble header! -->
           {#if statusText}
             <div class="header-status flex items-center gap-1 text-[10px] font-semibold text-[var(--color-muted-foreground)]">
@@ -176,6 +225,9 @@
           {/if}
 
           <div class="flex items-center gap-2">
+            <button type="button" class="ctrl-btn" onclick={collapse} aria-label="Minimize" title="Minimize">
+              <ChevronDown class="h-3 w-3" />
+            </button>
             <button type="button" class="ctrl-btn" onclick={expandChat} aria-label="Expand chat" title="Expand">
               <Maximize2 class="h-3 w-3" />
             </button>

@@ -13,9 +13,14 @@
   import { formatMoney } from "$lib/money";
   import { getContract } from "$lib/panel-contracts";
   import { fly, fade } from "svelte/transition";
+  import { useSession } from "$lib/stores/session.svelte";
+  import { toasts } from "$lib/ui/toast";
+  import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
+
   const addresses = useAddresses();
   const ui = useUI();
   const cart = useCart();
+  const session = useSession();
   let { panel }: { panel: DynamicPanel } = $props();
   // Address-select: which mode (list vs adding new)
   let addressMode = $state<"list" | "form">("list");
@@ -48,8 +53,47 @@
       : [];
   }
 
-  function submit() {
-    ui.closeDynamicPanel(panel.id, panel.data);
+  let submitting = $state(false);
+
+  async function submit() {
+    if (panel.type === "checkout") {
+      submitting = true;
+      try {
+        const res = await fetch("/api/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cart: cart.items.map((i: any) => ({ product_id: i.product.id, quantity: i.quantity, icing_text: i.icingText })),
+            recipient: { name: str(panel.data.recipientName), phone: str(panel.data.recipientPhone) },
+            delivery: { address: str(panel.data.streetAddress), city: str(panel.data.deliveryCity), date: str(panel.data.deliveryDate) },
+            sender: { name: str(panel.data.senderName) },
+            gift_message: panel.data.giftMessage ? str(panel.data.giftMessage) : null,
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to create order");
+        
+        ui.setOrderResult({ orderNumber: data.orderNumber, paymentUrl: data.paymentUrl });
+        if (data.orderNumber) {
+          session.upsertOrderRecord({
+            orderNumber: data.orderNumber,
+            paymentUrl: data.paymentUrl,
+            createdAt: Date.now(),
+            lastCheckedAt: 0,
+            status: "pending_payment"
+          });
+        }
+        cart.clear();
+        ui.closeDynamicPanel(panel.id, data);
+        toasts.success("Order created successfully!");
+      } catch (err) {
+        toasts.error(err instanceof Error ? err.message : "Order failed");
+      } finally {
+        submitting = false;
+      }
+    } else {
+      ui.closeDynamicPanel(panel.id, panel.data);
+    }
   }
 
   function cancel() {
@@ -212,7 +256,13 @@
           </label>
         {/each}
         <div class="panel-form-actions">
-          <button type="submit" class="btn-primary"><ShoppingBag class="h-4 w-4" /> Create Order</button>
+          <button type="submit" class="btn-primary" disabled={submitting}>
+            {#if submitting}
+              <BrailleSpinner size="sm" /> Creating Order
+            {:else}
+              <ShoppingBag class="h-4 w-4" /> Create Order
+            {/if}
+          </button>
         </div>
       </form>
 
