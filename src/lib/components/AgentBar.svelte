@@ -188,6 +188,21 @@
 </script>
 
 <div class="agent-bar-container">
+
+    <!-- ── Orb hint (idle state with no conversation) ────────────────────── -->
+    {#if displayOrbState === "idle" && !ui.agentInputOpen && conv.lastTurn === null}
+      <div class="orb-hint">
+        <div class="hint-text">click on the orb to give input<br>and click and hold for awesomeness</div>
+        <svg class="hint-arrow" viewBox="0 0 60 80" fill="none" aria-hidden="true">
+          <path d="M30 2 C22 6 10 10 10 20 C10 34 50 34 50 20 C50 8 34 4 30 18 C26 32 30 40 36 48 C42 56 44 66 38 74 L30 80"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M30 80 L24 72 M30 80 L36 72"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </div>
+    {/if}
+    <!-- ──────────────────────────────────────────────────────────────────── -->
+
     {#if liveActive}
         <!-- Hold/Voice Active Mode -->
         <div class="flex items-center gap-3">
@@ -456,4 +471,37 @@
         line-height: 1;
         cursor: pointer;
     }
+
+    /* ── Orb hint ──────────────────────────────────────────────────────── */
+    .orb-hint {
+        position: absolute;
+        bottom: calc(100% + 12px);
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        pointer-events: none;
+        animation: hint-fade-in 0.6s ease-out;
+    }
+
+    @keyframes hint-fade-in {
+        from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .hint-text {
+        text-align: center;
+        font-size: var(--fs-xs);
+        color: var(--color-muted-foreground);
+        line-height: 1.4;
+    }
+
+    .hint-arrow {
+        width: 28px;
+        height: 64px;
+        margin-top: -6px;
+        opacity: 0.7;
+    }
+    /* ──────────────────────────────────────────────────────────────────── */
 </style>
