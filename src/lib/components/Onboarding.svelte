@@ -526,12 +526,15 @@
       {#if step === 1}
         <!-- Step 1: skip (dull) + next -->
         <Button variant="ghost" size="md" class="skip-btn flex-1" onclick={skip}>
+          <SkipForward class="h-4 w-4" /> Skip
         </Button>
         <Button variant="primary" size="md" class="flex-1" onclick={next}>
+          Next <ArrowRight class="h-4 w-4" />
         </Button>
       {:else if step === 2}
         <!-- Step 2: let's go -->
         <Button variant="primary" size="md" class="flex-1" onclick={next}>
+          <Sparkles class="h-4 w-4" /> Let's go
         </Button>
       {:else}
         <!-- Final step (mic): finish -->
@@ -539,7 +542,6 @@
           <Sparkles class="h-4 w-4" /> Make a wish!
         </Button>
       {/if}
-    </div>
 
     {#if step === 1 || step === 2}
       <p class="reconfig-note">You can reconfigure these anytime via "Re-run onboarding" in the options menu.</p>
@@ -551,10 +553,11 @@
         <div class="progress-dot {i === step - 1 ? 'progress-dot--active' : ''}"></div>
       {/each}
     </div>
-  {/if}
   </div>
+{/if}
 </div>
 
+</div>
 <style>
   /* ── Overlay ── */
   .onboarding-overlay {
@@ -1061,6 +1064,9 @@
     align-items: center;
     gap: 0.5rem;
     margin-top: 1.25rem;
+  }
+  .actions-row > :global(button) {
+    border-radius: 0.5rem;
   }
 
 
