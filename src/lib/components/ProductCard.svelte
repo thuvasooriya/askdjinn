@@ -23,10 +23,6 @@
 
   const lists = useLists();
   let imgError = $state(false);
-  let stripViewport: HTMLDivElement | undefined = $state();
-  let stripMeasure: HTMLSpanElement | undefined = $state();
-  let stripOverflows = $state(false);
-
 
   function handleClick() { onClick?.(product); }
 
@@ -68,26 +64,6 @@
   const stripAnnotation = $derived(
     annotation ?? (userHighlighted ? "Your pick" : "Top pick")
   );
-
-  $effect(() => {
-    const viewport = stripViewport;
-    const measure = stripMeasure;
-    const text = stripAnnotation;
-    if (!viewport || !measure || !text) {
-      stripOverflows = false;
-      return;
-    }
-
-    const updateOverflow = () => {
-      stripOverflows = measure.scrollWidth > viewport.clientWidth;
-    };
-    updateOverflow();
-
-    const observer = new ResizeObserver(updateOverflow);
-    observer.observe(viewport);
-    observer.observe(measure);
-    return () => observer.disconnect();
-  });
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -146,6 +122,22 @@
       >
         <Heart class="h-3.5 w-3.5 {liked ? 'fill-[var(--color-destructive)] text-[var(--color-destructive)]' : 'text-white'}" />
       </button>
+
+      {#if highlighted}
+        <div
+          class="product-card-highlight-chip"
+          class:user-highlighted={userHighlighted}
+          title={stripAnnotation}
+          aria-label={userHighlighted ? `Your pick: ${stripAnnotation}` : `Agent pick: ${stripAnnotation}`}
+        >
+          {#if userHighlighted}
+            <Heart class="product-card-highlight-icon fill-current" />
+          {:else}
+            <Star class="product-card-highlight-icon fill-current" />
+          {/if}
+          <span class="product-card-highlight-text">{stripAnnotation}</span>
+        </div>
+      {/if}
     </div>
 
     <!-- Info section -->
@@ -173,81 +165,38 @@
     </div>
   </div>
 
-  <!-- Highlight strip -->
-  {#if highlighted}
-    <div class="product-card-strip" class:user-highlighted={userHighlighted}>
-      <div class="product-card-strip-content" bind:this={stripViewport}>
-        <span class="product-card-strip-measure" bind:this={stripMeasure} aria-hidden="true">
-          {#if userHighlighted}
-            <Heart class="product-card-strip-icon fill-current" />
-          {:else}
-            <Star class="product-card-strip-icon fill-current" />
-          {/if}
-          <span class="product-card-strip-text">{stripAnnotation}</span>
-        </span>
-        {#if stripOverflows}
-          <span class="product-card-strip-track">
-            <span class="product-card-strip-inner">
-              {#if userHighlighted}
-                <Heart class="product-card-strip-icon fill-current" />
-              {:else}
-                <Star class="product-card-strip-icon fill-current" />
-              {/if}
-              <span class="product-card-strip-text">{stripAnnotation}</span>
-            </span>
-            <span class="product-card-strip-inner" aria-hidden="true">
-              {#if userHighlighted}
-                <Heart class="product-card-strip-icon fill-current" />
-              {:else}
-                <Star class="product-card-strip-icon fill-current" />
-              {/if}
-              <span class="product-card-strip-text">{stripAnnotation}</span>
-            </span>
-          </span>
-        {:else}
-          <span class="product-card-strip-static">
-            {#if userHighlighted}
-              <Heart class="product-card-strip-icon fill-current" />
-            {:else}
-              <Star class="product-card-strip-icon fill-current" />
-            {/if}
-            <span class="product-card-strip-text">{stripAnnotation}</span>
-          </span>
-        {/if}
-      </div>
-    </div>
-  {/if}
 </div>
 
 <style>
   .product-card-wrapper {
     position: relative;
-    padding: 6px;
-    border-radius: calc(var(--radius-lg) + 6px);
-    background: transparent;
+    padding: 4px;
+    border-radius: calc(var(--radius-lg) + 4px);
+    background:
+      linear-gradient(var(--color-background), var(--color-background)) padding-box,
+      linear-gradient(color-mix(in srgb, var(--color-border) 70%, transparent), transparent) border-box;
     transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
     display: flex;
     flex-direction: column;
+    border: 1px solid transparent;
   }
 
   .product-card-wrapper.highlighted {
     background:
-      radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--color-primary) 45%, transparent), transparent 45%),
-      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 36%, transparent), color-mix(in srgb, var(--color-primary) 14%, transparent));
+      linear-gradient(color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 4%), color-mix(in srgb, var(--color-surface) 96%, transparent)) padding-box,
+      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 78%, transparent), color-mix(in srgb, var(--color-accent) 42%, transparent)) border-box;
     box-shadow:
-      0 0 0 1.5px color-mix(in srgb, var(--color-primary) 70%, transparent) inset,
-      0 0 22px color-mix(in srgb, var(--color-primary) 34%, transparent),
-      0 10px 28px color-mix(in srgb, var(--color-primary) 16%, transparent);
+      0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent),
+      0 12px 30px color-mix(in srgb, var(--color-primary) 12%, transparent);
   }
 
   .product-card-wrapper.user-highlighted {
     background:
-      radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--color-accent) 45%, transparent), transparent 45%),
-      linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 36%, transparent), color-mix(in srgb, var(--color-accent) 14%, transparent));
+      linear-gradient(color-mix(in srgb, var(--color-surface) 92%, var(--color-accent) 4%), color-mix(in srgb, var(--color-surface) 96%, transparent)) padding-box,
+      linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 78%, transparent), color-mix(in srgb, var(--color-primary) 36%, transparent)) border-box;
     box-shadow:
-      0 0 0 1.5px color-mix(in srgb, var(--color-accent) 70%, transparent) inset,
-      0 0 22px color-mix(in srgb, var(--color-accent) 34%, transparent),
-      0 10px 28px color-mix(in srgb, var(--color-accent) 16%, transparent);
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 18%, transparent),
+      0 12px 30px color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
   .product-card {
@@ -259,21 +208,22 @@
     cursor: pointer;
     outline: none;
     overflow: hidden;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
   }
 
   .product-card:hover {
     border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    transform: translateY(-1px);
   }
 
   .product-card-wrapper.highlighted .product-card {
-    border-color: color-mix(in srgb, var(--color-primary) 78%, var(--color-border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 38%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 96%, var(--color-primary) 4%);
   }
 
   .product-card-wrapper.user-highlighted .product-card {
-    border-color: color-mix(in srgb, var(--color-accent) 78%, var(--color-border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 38%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 48%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 96%, var(--color-accent) 4%);
   }
 
   .product-card.selected {
@@ -344,6 +294,78 @@
     transform: scale(0.8);
   }
 
+  .product-card-highlight-chip {
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 2;
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-full);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 34%, transparent);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-surface) 88%, var(--color-primary) 12%),
+        color-mix(in srgb, var(--color-surface) 76%, transparent)
+      );
+    color: var(--color-primary);
+    padding: 0.3125rem 0.5rem;
+    box-shadow:
+      0 10px 24px rgb(0 0 0 / 0.28),
+      inset 0 1px 0 rgb(255 255 255 / 0.08);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+    animation: highlight-chip-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .product-card-highlight-chip.user-highlighted {
+    border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-surface) 88%, var(--color-accent) 12%),
+        color-mix(in srgb, var(--color-surface) 76%, transparent)
+      );
+    color: var(--color-accent);
+  }
+
+  .product-card-image::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 35%;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.44), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .product-card-wrapper.highlighted .product-card-image::after {
+    opacity: 1;
+  }
+
+  /* Forwarded onto Lucide <Star/Heart class="product-card-highlight-icon"> — :global() */
+  .product-card-highlight-chip :global(.product-card-highlight-icon) {
+    height: 0.8125rem;
+    width: 0.8125rem;
+    flex-shrink: 0;
+  }
+
+  .product-card-highlight-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+    font-weight: 750;
+    line-height: 1.1;
+    color: currentColor;
+  }
+
   .product-card-info {
     display: flex;
     flex-direction: column;
@@ -405,89 +427,23 @@
     color: var(--color-muted-foreground);
   }
 
-  /* Highlight strip */
-  .product-card-strip {
-    padding: 0 6px;
-    margin-top: 4px;
-    color: var(--color-primary);
-    font-size: var(--fs-xs);
-    line-height: 1.5;
-  }
-
-  .product-card-strip.user-highlighted {
-    color: var(--color-accent);
-  }
-
-  .product-card-strip-content {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.25rem;
-    overflow: hidden;
-    white-space: nowrap;
-    border-radius: var(--radius-sm);
-    text-shadow: 0 0 10px currentColor;
-  }
-
-  .product-card-strip-measure {
-    position: absolute;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    visibility: hidden;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  .product-card-strip-static {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    max-width: 100%;
-    font-weight: 700;
-  }
-
-  .product-card-strip-track {
-    display: inline-flex;
-    min-width: max-content;
-    font-weight: 700;
-    animation: scroll-text 15s linear infinite;
-  }
-
-  .product-card-strip:hover .product-card-strip-track {
-    animation-play-state: paused;
-  }
-
-  .product-card-strip-inner {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding-right: 1rem;
-  }
-
-  /* Forwarded onto Lucide <Star/Heart class="product-card-strip-icon"> — :global() */
-  .product-card-strip-inner :global(.product-card-strip-icon),
-  .product-card-strip-static :global(.product-card-strip-icon),
-  .product-card-strip-measure :global(.product-card-strip-icon) {
-    height: 0.75rem;
-    width: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  @keyframes scroll-text {
-    0% { transform: translateX(0); }
-    10% { transform: translateX(0); }
-    90% { transform: translateX(-50%); }
-    100% { transform: translateX(-50%); }
+  @keyframes highlight-chip-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .product-card-strip-track {
+    .product-card-highlight-chip {
       animation: none;
     }
 
+    .product-card:hover,
     .product-card:hover .product-card-img {
       transform: none;
     }

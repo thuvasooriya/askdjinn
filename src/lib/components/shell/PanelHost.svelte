@@ -125,36 +125,45 @@
     });
 </script>
 
-<div
-    class="tile-host"
-    bind:this={hostEl}
-    role="region"
-    aria-label={panel.title}
->
+<div class="panel-wrapper">
     <HandleZone
         anchor="top-center"
         actions={handleActions}
         label={panel.title}
     />
-    <div class="host-body">
-        {#if panel.type === "products"}
-            <ProductThreadsTile onClickProduct={clickProduct} />
-        {:else if panel.type === "conversation"}
-            <ConversationTile {liveActive} />
-        {:else if panel.kind === "dynamic"}
-            <DynamicPanel {panel} />
-        {:else}
-            <PanelContent
-                id={panel.id === "product-detail" ? "product-detail" : panel.id}
-                onCheckout={checkout}
-                onAddProduct={addProduct1}
-                {aspect}
-            />
-        {/if}
+    <div
+        class="tile-host"
+        bind:this={hostEl}
+        role="region"
+        aria-label={panel.title}
+    >
+        <div class="host-body">
+            {#if panel.type === "products"}
+                <ProductThreadsTile onClickProduct={clickProduct} />
+            {:else if panel.type === "conversation"}
+                <ConversationTile {liveActive} />
+            {:else if panel.kind === "dynamic"}
+                <DynamicPanel {panel} />
+            {:else}
+                <PanelContent
+                    id={panel.id === "product-detail" ? "product-detail" : panel.id}
+                    onCheckout={checkout}
+                    onAddProduct={addProduct1}
+                    {aspect}
+                />
+            {/if}
+        </div>
     </div>
 </div>
 
 <style>
+    .panel-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+    }
     .tile-host {
         position: relative;
         display: flex;

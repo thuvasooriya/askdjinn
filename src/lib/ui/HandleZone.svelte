@@ -148,7 +148,7 @@
             <button
                 type="button"
                 class={cn(
-                    "glass-btn glass-btn--sm handle-action-btn",
+                    "glass-btn panel-trafic-light-btn handle-action-btn",
                     action.variant === "danger" && "glass-btn--danger",
                     action.variant === "active" && "glass-btn--active",
                     action.urgent && "glass-btn--urgent",
@@ -160,7 +160,7 @@
                 aria-label={action.label}
                 title={action.label}
             >
-                <action.icon class="h-3.5 w-3.5" />
+                <action.icon class="h-2.5 w-2.5" />
                 {#if action.badge != null && action.badge !== 0}
                     <span class="glass-btn-badge">{action.badge}</span>
                 {/if}
@@ -212,7 +212,7 @@
     }
     .handle-zone--anchor-top-center {
         position: absolute;
-        top: 0;
+        top: -0.375rem;
         left: 50%;
         transform: translateX(-50%);
         align-self: auto;
@@ -273,6 +273,10 @@
     }
     .handle-action-btn:hover {
         color: var(--color-foreground);
+    }
+    :global(.panel-trafic-light-btn) {
+        width: 1.25rem;
+        height: 1.25rem;
     }
 
     @media (prefers-reduced-motion: reduce) {
