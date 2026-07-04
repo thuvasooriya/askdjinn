@@ -82,6 +82,10 @@
     {loading ? "summoning..." : "summon the djinn"}
   </div>
   
+  {#if progress > 0}
+    <div class="swipe-glow" style="width: calc({progress} * 100%)"></div>
+  {/if}
+  
   <div 
     class="slide-handle" 
     bind:this={handle}
@@ -100,8 +104,8 @@
     {:else}
       <ArrowRight size={20} class="handle-icon" />
     {/if}
-  </div>
-</div>
+  </div>  <!-- closes slide-handle -->
+</div>  <!-- closes slide-container -->
 
 <style>
   .slide-container {
@@ -134,19 +138,24 @@
     letter-spacing: 0.05em;
     pointer-events: none;
     transition: opacity 0.1s;
-    mask-image: linear-gradient(to right, transparent, black 40%, black 60%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 40%, black 60%, transparent);
-    animation: shimmer 2.5s infinite linear;
-    background: linear-gradient(to right, var(--color-muted-foreground) 40%, var(--color-foreground) 50%, var(--color-muted-foreground) 60%);
-    background-size: 200% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
+    position: relative;
+    z-index: 2;
   }
-
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -100% 0; }
+  
+  .swipe-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(to right,
+      color-mix(in srgb, var(--color-primary) 6%, transparent) 0%,
+      color-mix(in srgb, var(--color-primary) 20%, transparent) 60%,
+      color-mix(in srgb, var(--color-primary) 35%, transparent) 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+    transition: width 0.05s linear;
   }
 
   .slide-handle {
@@ -162,12 +171,12 @@
     justify-content: center;
     cursor: grab;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.1s;
+    transition: transform 0.1s, box-shadow 0.15s;
     z-index: 10;
   }
-
   .slide-handle:active {
     cursor: grabbing;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 60%, transparent);
   }
 
   /* When JS updates transform, we want it to be instant if dragging, but snap back if released.

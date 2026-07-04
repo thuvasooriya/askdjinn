@@ -62,6 +62,7 @@ const OPEN_PANELS_STORE_ID = "open-panels";     // legacy static-panel ids (v1)
 const DYNAMIC_PANELS_STORE_ID = "dynamic-panels"; // legacy dynamic panels (v1)
 const PANELS_STORE_ID = "panels";                // unified registry (v2)
 const ORDER_RESULT_STORE_ID = "order-result";
+const PRODUCT_DETAIL_STORE_ID = "product-detail-target";
 const VERSION = 1;
 
 export const defaultSearchCriteria: SearchCriteria = {
@@ -288,6 +289,11 @@ class UIStore {
       .filter(p => p.status !== "expired")
       .map(p => ({ ...p, resolve: undefined }));
     this.savePanels();
+    // Restore the product-detail target only when its panel survived reload,
+    // so reopening the panel doesn't land on "Product details are unavailable".
+    this.productDetailId = this.panels.some(p => p.id === "product-detail")
+      ? persist.load<string | null>(PRODUCT_DETAIL_STORE_ID, VERSION, null)
+      : null;
 
     if (typeof window.matchMedia !== "function") return;
     const syncViewport = () => {
@@ -490,11 +496,13 @@ class UIStore {
 
   openProductDetail(productId: string) {
     this.productDetailId = String(productId);
+    persist.save(PRODUCT_DETAIL_STORE_ID, VERSION, String(productId));
     this.openPanel("product-detail");
   }
 
   closeProductDetail() {
     this.productDetailId = null;
+    persist.clear(PRODUCT_DETAIL_STORE_ID);
     this.closePanel("product-detail");
   }
   openGallery(images: string[], activeIndex: number = 0, productId: string | null = null) {

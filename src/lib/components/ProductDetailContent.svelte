@@ -35,7 +35,7 @@
   let imgError = $state(false);
   let activeImg = $state(0);
   let selectedVariantId = $state<string | null>(null);
-  let slideshowPlaying = $state(false);
+  let slideshowPlaying = $state(true);
 
   const selectedVariant = $derived(
     product?.variants?.find(v => v.id === selectedVariantId) ?? null
@@ -68,11 +68,11 @@
     const variantImg = (
       selectedVariant as { imageUrl?: string } | null
     )?.imageUrl;
-    const imgs: string[] = [];
-    if (variantImg) imgs.push(variantImg);
-    if (product.imageUrl) imgs.push(product.imageUrl);
-    if (product.images) imgs.push(...product.images);
-    return [...new Set(imgs)];
+    // Prefer the images array; fall back to the thumbnail only when it's empty.
+    // The thumbnail is usually already inside the images array, so we don't
+    // merge them — that was causing the duplicated first frame.
+    const base = product.images?.length ? product.images : (product.imageUrl ? [product.imageUrl] : []);
+    return [...new Set(variantImg ? [variantImg, ...base] : base)];
   });
 
   const breadcrumb = $derived.by<string[]>(() => {
@@ -95,7 +95,7 @@
       untrack(() => {
         selectedVariantId = null;
         activeImg = 0;
-        slideshowPlaying = false;
+        slideshowPlaying = true;
         imgError = false;
       });
     }
@@ -158,6 +158,7 @@
     const count = displayImages.length;
     if (count === 0) return;
     activeImg = ((index % count) + count) % count;
+    slideshowPlaying = false;
     imgError = false;
   }
 
@@ -354,20 +355,8 @@
           </details>
         {/if}
 
-        {#if product.summary}
-          <details class="section" open>
-            <summary class="section-summary">
-              <span class="section-title">Summary</span>
-              <ChevronDown class="section-chevron" />
-            </summary>
-            <div class="section-content">
-              <p class="summary-text">{product.summary}</p>
-            </div>
-          </details>
-        {/if}
-
         {#if product.description}
-          <details class="section" open={!product.summary}>
+            <details class="section" open>
             <summary class="section-summary">
               <span class="section-title">Description</span>
               <ChevronDown class="section-chevron" />
@@ -955,15 +944,6 @@
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 5%, transparent);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  }
-
-  /* ── Summary ── */
-  .summary-text {
-    font-size: var(--fs-sm);
-    font-style: italic;
-    line-height: 1.5;
-    color: var(--color-muted-foreground);
-    margin: 0;
   }
 
   /* ── Description ── */

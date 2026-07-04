@@ -168,6 +168,20 @@
             </button>
         {/if}
 
+        <!-- Cart Button (only when cart has items) -->
+        {#if cart.count > 0}
+            <button
+                type="button"
+                class="glass-btn"
+                onclick={(e) => onCartClick?.(e.currentTarget as HTMLElement)}
+                aria-label="Cart ({cart.count} items)"
+                title="Cart"
+            >
+                <ShoppingBag class="h-4 w-4" />
+                <span class="glass-btn-badge">{cart.count}</span>
+            </button>
+        {/if}
+
         <!-- Options Menu Button (fixed in the bottom-right corner) -->
         <button
             type="button"
