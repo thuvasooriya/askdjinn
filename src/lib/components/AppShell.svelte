@@ -172,15 +172,15 @@
 
     <!-- Order banner (if active) -->
     {#if ui.lastOrder}
-      <div class="order-banner">
+      <div class="order-banner bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-xl shadow-lg flex items-center gap-3 px-4 py-3">
         <div class="order-icon"><Check class="h-3.5 w-3.5" /></div>
         <span class="order-text">Order ready</span>
-        {#if ui.lastOrder.orderNumber}<span class="order-num">{ui.lastOrder.orderNumber}</span>{/if}
+        {#if ui.lastOrder.orderNumber}<span class="order-num font-mono text-[10px] text-[var(--color-muted-foreground)]">{ui.lastOrder.orderNumber}</span>{/if}
         <span class="flex-1"></span>
         {#if ui.lastOrder.paymentUrl}
-          <a href={ui.lastOrder.paymentUrl} target="_blank" rel="noreferrer" class="order-pay">Pay Now <ExternalLink class="h-3 w-3" /></a>
+          <a href={ui.lastOrder.paymentUrl} target="_blank" rel="noreferrer" class="order-pay flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-primary-foreground)] no-underline">Pay <ExternalLink class="h-3 w-3" /></a>
         {/if}
-        <button onclick={() => ui.clearOrderResult()} type="button" class="order-dismiss" aria-label="Dismiss"><X class="h-3.5 w-3.5" /></button>
+        <button onclick={() => ui.clearOrderResult()} type="button" class="order-dismiss" aria-label="Dismiss"><X class="h-3 w-3" /></button>
       </div>
     {/if}
 
@@ -246,18 +246,28 @@
   /* Old top-right FAB styles removed — replaced by the bottom-right Dock.
      Cart fly-to-cart target is now the Dock's cart chip. */
 
-  /* Order banner */
+  /* Order banner — toast-style container, positioned top-center */
   .order-banner {
     position: fixed; top: 0.625rem; left: 50%; transform: translateX(-50%); z-index: 40;
-    display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem;
-    border-radius: var(--radius-lg); border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
-    background: color-mix(in srgb, var(--color-surface) 90%, transparent); backdrop-filter: blur(12px);
+    cursor: pointer;
+    transition: transform 0.15s;
   }
-  .order-icon { display: flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: var(--radius-full); background: var(--color-success); color: var(--color-success-foreground); }
-  .order-text { font-size: var(--fs-sm); font-weight: 500; color: var(--color-foreground); }
-  .order-num { font-size: 0.5625rem; color: var(--color-muted-foreground); }
-  .order-pay { display: flex; align-items: center; gap: 0.25rem; border-radius: var(--radius-full); background: var(--color-primary); padding: 0.25rem 0.625rem; font-size: 0.5625rem; font-weight: 700; color: var(--color-primary-foreground); text-decoration: none; }
-  .order-dismiss { background: none; border: none; color: var(--color-muted-foreground); cursor: pointer; padding: 0.25rem; }
+  .order-banner:hover {
+    transform: translateX(-50%) scale(1.02);
+  }
+  .order-banner:active {
+    transform: translateX(-50%) scale(0.98);
+  }
+  .order-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 1.5rem; height: 1.5rem; border-radius: var(--radius-full);
+    background: var(--color-success); color: var(--color-success-foreground);
+  }
+  .order-text { font-size: var(--fs-sm); font-weight: 500; }
+  .order-dismiss {
+    background: none; border: none; color: var(--color-muted-foreground);
+    cursor: pointer; padding: 0.25rem;
+  }
 
   /* .tile chrome now lives on PanelHost (.tile-host) — the old .tile rule
      was for the flat-grid wrappers that the Region tree replaced. */

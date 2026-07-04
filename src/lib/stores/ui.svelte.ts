@@ -61,6 +61,7 @@ const PRODUCT_CACHE_STORE_ID = "product-cache";
 const OPEN_PANELS_STORE_ID = "open-panels";     // legacy static-panel ids (v1)
 const DYNAMIC_PANELS_STORE_ID = "dynamic-panels"; // legacy dynamic panels (v1)
 const PANELS_STORE_ID = "panels";                // unified registry (v2)
+const ORDER_RESULT_STORE_ID = "order-result";
 const VERSION = 1;
 
 export const defaultSearchCriteria: SearchCriteria = {
@@ -254,6 +255,7 @@ class UIStore {
     this.searchCriteria = persist.load<SearchCriteria>(SEARCH_STORE_ID, VERSION, { ...defaultSearchCriteria });
     this.searchThreads = persist.load<Array<{ id: string; query: string; products: Product[]; searchedAt?: number }>>(THREADS_STORE_ID, VERSION, []);
     const cachedProducts = persist.load<Product[]>(PRODUCT_CACHE_STORE_ID, VERSION, []);
+    this.lastOrder = persist.load<{ orderNumber?: string; paymentUrl?: string } | null>(ORDER_RESULT_STORE_ID, VERSION, null);
     const reg = new Map<string, Product>();
     for (const product of cachedProducts) reg.set(product.id, product);
     for (const thread of this.searchThreads) {
@@ -472,13 +474,14 @@ class UIStore {
   toggleDebugChat() {
     this.debugChatOpen = !this.debugChatOpen;
   }
-
   setOrderResult(order: { orderNumber?: string; paymentUrl?: string }) {
     this.lastOrder = order;
+    persist.save(ORDER_RESULT_STORE_ID, VERSION, order);
   }
 
   clearOrderResult() {
     this.lastOrder = null;
+    persist.clear(ORDER_RESULT_STORE_ID);
   }
 
   scrollTo(productId: string) {
