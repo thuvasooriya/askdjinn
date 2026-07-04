@@ -195,7 +195,7 @@
   <div bind:this={containerEl} class="floating-bubble-container" transition:fly={{ y: 20, duration: reducedMotion ? 0 : 250 }}>
     {#if collapsed}
       <!-- Collapsed pill — tap to expand -->
-      <button type="button" class="status-pill glass shadow-md flex items-center gap-1.5 ctrl-btn" onclick={expand}>
+      <button type="button" class="status-pill" onclick={expand}>
         {#if statusText}
           {#if isError}
             <AlertCircle class="h-3 w-3 text-red-500" />
@@ -282,17 +282,31 @@
   }
 
   .status-pill {
-    padding: 0.375rem 0.75rem;
-    border-radius: var(--radius-full);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-xl);
     border: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 60%),
+      color-mix(in srgb, var(--color-surface) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--color-foreground);
+    font-weight: 700;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: var(--shadow-float);
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .status-pill:hover {
+    transform: scale(1.03);
+  }
+  .status-pill:active {
+    transform: scale(0.97);
   }
 
   .response-bubble {
