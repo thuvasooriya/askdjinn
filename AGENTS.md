@@ -36,3 +36,36 @@ WELL DESIGNED NON LEAKY WELL NAME-SPACED API and INTERFACE DESIGN
 Any stubbed/faked implementation is a CRITICAL ERROR and must be identified
 immediately and fixed before readiness. Every implementation must be real --
 accurate error handling, proper status codes, no mock data.
+
+
+## JUJUTSU (jj) WORKFLOW
+
+- Use `jj --no-pager` for all commands — never use `git` directly for local workflow
+- Start new work: `jj new` → `jj desc -m "descriptive title"`
+- Set bookmark for publication: `jj bookmark set main -r @-` (after review)
+- Clean state: working copy with no changes; ready for next work
+- Collocated mode: `jj` manages the working copy; `git` is the object backend
+- Never use `jj squash` to skip review; use `jj new` first
+- Recover from mistakes: `jj undo` (last op), `jj op log` + `jj op restore <op>`
+- Check status: `jj status`, `jj log -r 'main..@'`, `jj diff --git`
+- Push to remote (when configured): `jj git push --remote origin --bookmark main`
+- File tracking: `jj file track <path>`, `jj file untrack <path>` — respects `.gitignore`
+
+### Bookmark Pattern
+
+- `main` bookmark tracks the published state
+- Working copy `@` is always a child of the current bookmark
+- After review: `jj bookmark set main -r @-` squashes the stack
+- No remote? Bookmark exists locally; git branch syncs automatically
+
+### Example Workflow
+
+```
+jj --no-pager new                    # fresh change
+jj --no-pager desc -m "fix: handle null case"
+# ... edit files ...
+jj --no-pager status                   # review changes
+jj --no-pager log -r 'main..@'         # see diff from main
+# ... when ready to publish ...
+jj --no-pager bookmark set main -r @-   # update main
+```

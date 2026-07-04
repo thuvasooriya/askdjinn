@@ -5,8 +5,10 @@
   import { AGENT_LIST } from "$lib/agents";
   import { THEME_LIST } from "$lib/themes";
   import { Check, type ComponentType, languageIcons } from "$lib/icons";
-  import { Sun, Moon, Sparkles, ArrowRight } from "@lucide/svelte";
+  import { Sun, Moon, Sparkles, ArrowRight, ArrowLeft, SkipForward, Globe, Wand2, Eye, Brain } from "@lucide/svelte";
   import AgentOrb from "./AgentOrb.svelte";
+  import MadeWith from "$lib/components/shell/MadeWith.svelte";
+  import SlideToSummon from "$lib/components/shell/SlideToSummon.svelte";
   import Button from "$lib/ui/Button.svelte";
   import DjinnBrand from "$lib/components/brand/DjinnBrand.svelte";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
@@ -26,14 +28,19 @@
   let selectedGender = $state<string>("Not specified");
   let selectedAllergies = $state<string>("");
   let selectedNotes = $state<string>("");
-  let hasMicPermission = $state(false);
-  let themeDropdownOpen = $state(false);
-  let dropdownEl = $state<HTMLElement>();
+  let selectedName = $state<string>("");
+  let selectedCallingCard = $state<string>("");
 
-  function selectTheme(id: ThemeId) {
-    selectedTheme = id;
-    themeDropdownOpen = false;
-  }
+  // Calling-card suggestions adapt to the language picked in step 1. The field
+  // stays free-text -- these are native <datalist> hints only; the user can type
+  // anything. Unset -> address by name; no name -> the agent follows its
+  // personality and learns as it goes.
+  const callingCardSuggestions: Record<Language, string[]> = {
+    english: ["dear", "friend", "mate"],
+    sinhala: ["machan", "aiya", "akka", "mahaththaya"],
+    tamil: ["machan", "thambi", "anneh", "thangachi"],
+  };
+  let hasMicPermission = $state(false);
   onMount(async () => {
     if (navigator.permissions?.query) {
       try {
@@ -120,6 +127,12 @@
     profile.setAgent(selectedAgent);
     profile.setTheme(selectedTheme);
     if (selectedCity.trim()) profile.setPreferredCity(selectedCity.trim());
+    if (selectedName.trim()) {
+      profile.addFact(`name is ${selectedName.trim()}`, "preference");
+    }
+    if (selectedCallingCard.trim()) {
+      profile.addFact(`Address the user as "${selectedCallingCard.trim()}"`, "address");
+    }
 
     if (selectedGender !== "Not specified") {
       profile.addFact(`Preferred gender/salutation: ${selectedGender}`, "preference");
@@ -173,7 +186,6 @@
 </script>
 
 <svelte:window onclick={(e) => {
-  if (themeDropdownOpen && dropdownEl && !dropdownEl.contains(e.target as Node)) themeDropdownOpen = false;
   if (cityDropdownOpen && cityDropdownEl && !cityDropdownEl.contains(e.target as Node)) cityDropdownOpen = false;
 }} />
 
@@ -190,16 +202,30 @@
 
         <h1 class="welcome-headline">wish it get it</h1>
 
-        <div class="welcome-actions-row">
-          <button type="button" class="welcome-cta" onclick={next}>
-            <BrailleSpinner name="cascade" size="sm" label="Loading" />
-            <span>get your wish</span>
-            <ArrowRight class="welcome-arrow" size={18} />
-          </button>
-          <button type="button" class="welcome-skip" onclick={skip}>skip</button>
+        <div class="welcome-features">
+          <div class="feature-tile">
+            <div class="feature-icon"><Globe size={18} /></div>
+            <div class="feature-text">Tamil, Sinhala, English? no problem</div>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-icon"><Wand2 size={18} /></div>
+            <div class="feature-text">Ask Djinn what you want and it'll do it</div>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-icon"><Eye size={18} /></div>
+            <div class="feature-text">Show Djinn what you like and it will help you with that</div>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-icon"><Brain size={18} /></div>
+            <div class="feature-text">Allergic? Hate spice? Djinn remembers your darkest secrets</div>
+          </div>
         </div>
 
-        <p class="welcome-footer">Made with love 🇱🇰</p>
+        <div class="welcome-summon-wrap">
+          <SlideToSummon oncomplete={next} />
+        </div>
+
+        <MadeWith />
       </div>
 
 
@@ -215,7 +241,7 @@
         <div class="unified-config-scroll overflow-y-auto px-4 py-1 space-y-5 max-h-[58vh]">
           <!-- 1. Language Selection -->
           <div class="section-group">
-            <span class="section-label">Preferred Language</span>
+            <span class="section-label">Agent Response Language</span>
             <div class="grid grid-cols-3 gap-2 mt-2">
               {#each languages as lang (lang.value)}
                 <button
@@ -231,6 +257,9 @@
                 </button>
               {/each}
             </div>
+            {#if selectedLang !== "english"}
+              <p class="lang-note">Responses can be mixed with English for clarity.</p>
+            {/if}
           </div>
 
           <!-- 2. Agent Personality Selection -->
@@ -244,7 +273,7 @@
                   class="compact-opt-card text-left {selectedAgent === agent.id ? 'compact-opt-card--active' : ''}"
                 >
                   <div class="compact-orb-preview">
-                    <AgentOrb mode="llm" phase="idle" size={24} />
+                    <AgentOrb mode="llm" phase="idle" size={24} agentId={agent.id} />
                   </div>
                   <div class="flex flex-col min-w-0">
                     <span class="compact-opt-title font-semibold">{agent.name}</span>
@@ -258,56 +287,28 @@
             </div>
           </div>
 
-          <!-- 3. Theme Selection via Custom Dropdown -->
+          <!-- 3. Theme Selection -->
           <div class="section-group">
-            <span class="section-label">Visual Theme</span>
-            <div class="relative mt-2" bind:this={dropdownEl}>
-              <button
-                type="button"
-                onclick={() => themeDropdownOpen = !themeDropdownOpen}
-                class="dropdown-trigger flex items-center justify-between w-full"
-                aria-haspopup="listbox"
-                aria-expanded={themeDropdownOpen}
-              >
-                {#if THEME_LIST.find(t => t.id === selectedTheme)}
-                  {@const activeTheme = THEME_LIST.find(t => t.id === selectedTheme) ?? THEME_LIST[0]}
-                  <div class="flex items-center gap-3">
-                    <div class="compact-swatch">
-                      {#each activeTheme.swatch as color}
-                        <span class="swatch-dot" style="background: {color}"></span>
-                      {/each}
-                    </div>
-                    <span class="compact-theme-name font-medium">{activeTheme.name}</span>
+            <span class="section-label">Preferred Theme</span>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+              {#each THEME_LIST as theme (theme.id)}
+                <button
+                  type="button"
+                  onclick={() => selectedTheme = theme.id}
+                  class="compact-opt-card theme-card {selectedTheme === theme.id ? 'compact-opt-card--active' : ''}"
+                  title={theme.name}
+                >
+                  <div class="compact-swatch">
+                    {#each theme.swatch as color}
+                      <span class="swatch-dot" style="background: {color}"></span>
+                    {/each}
                   </div>
-                {/if}
-                <span class="text-[var(--color-muted-foreground)] text-xs">
-                  {#if themeDropdownOpen}▲{:else}▼{/if}
-                </span>
-              </button>
-
-              {#if themeDropdownOpen}
-                <div class="dropdown-list-container" transition:fade={{ duration: 100 }}>
-                  {#each THEME_LIST as theme (theme.id)}
-                    <button
-                      type="button"
-                      onclick={() => selectTheme(theme.id)}
-                      class="dropdown-item flex items-center justify-between w-full {selectedTheme === theme.id ? 'dropdown-item--active' : ''}"
-                    >
-                      <div class="flex items-center gap-3">
-                        <div class="compact-swatch">
-                          {#each theme.swatch as color}
-                            <span class="swatch-dot" style="background: {color}"></span>
-                          {/each}
-                        </div>
-                        <span class="compact-theme-name">{theme.name}</span>
-                      </div>
-                      {#if selectedTheme === theme.id}
-                        <Check class="h-3 w-3 text-[var(--color-primary)]" />
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
+                  <span class="compact-opt-title font-medium">{theme.shortName}</span>
+                  {#if selectedTheme === theme.id}
+                    <div class="option-check-dot"><Check class="h-2 w-2" /></div>
+                  {/if}
+                </button>
+              {/each}
             </div>
           </div>
         </div>
@@ -322,6 +323,36 @@
           <p class="step-subtitle">These details help your djinn serve you better. All saved to your profile.</p>
         </div>
         <div class="about-scroll">
+          <!-- Name -->
+          <div class="about-section">
+            <span class="about-label">Your name</span>
+            <p class="about-hint">So your djinn can greet you personally. Optional.</p>
+            <input
+              type="text"
+              bind:value={selectedName}
+              placeholder="e.g. Nimal"
+              class="about-input"
+              autocomplete="name"
+            />
+          </div>
+
+          <!-- Calling card -->
+          <div class="about-section">
+            <span class="about-label">How should I address you?</span>
+            <p class="about-hint">Pick a suggestion or type your own. Leave blank to go by your name.</p>
+            <input
+              type="text"
+              bind:value={selectedCallingCard}
+              list="calling-card-suggestions"
+              placeholder={selectedLang === "english" ? "e.g. dear, friend" : "e.g. machan"}
+              class="about-input"
+            />
+            <datalist id="calling-card-suggestions">
+              {#each callingCardSuggestions[selectedLang] as card (card)}
+                <option value={card}></option>
+              {/each}
+            </datalist>
+          </div>
           <!-- Delivery city -->
           <div class="about-section" bind:this={cityDropdownEl}>
             <span class="about-label">Your delivery city</span>
@@ -469,22 +500,35 @@
   <!-- Actions (hidden for step 0 which has its own CTA inside the step) -->
   {#if step > 0}
     <div class="actions-row">
-      {#if step > 0}
-        <Button variant="ghost" size="lg" onclick={() => step--}>Back</Button>
-      {/if}
-      <Button variant="primary" size="lg" class="flex-1" onclick={next}>
-        {#if step === totalSteps - 1}
-          <Sparkles class="h-4 w-4" /> Make a wish!
-        {:else}
-          Continue
-        {/if}
+      <!-- Back (all steps > 0) -->
+      <Button variant="ghost" size="lg" onclick={() => step--}>
+        <ArrowLeft class="h-4 w-4" /> Back
       </Button>
+
+      {#if step === 1}
+        <!-- Step 1: skip (dull) + next -->
+        <Button variant="ghost" size="lg" class="skip-btn flex-1" onclick={skip}>
+          <SkipForward class="h-4 w-4" /> Skip
+        </Button>
+        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
+          Next <ArrowRight class="h-4 w-4" />
+        </Button>
+      {:else if step === 2}
+        <!-- Step 2: let's go -->
+        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
+          Let's go <Sparkles class="h-4 w-4" />
+        </Button>
+      {:else}
+        <!-- Final step (mic): finish -->
+        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
+          <Sparkles class="h-4 w-4" /> Make a wish!
+        </Button>
+      {/if}
     </div>
 
-    <!-- Skip link -->
-    <button type="button" onclick={skip} class="skip-link">
-      Skip setup and start shopping
-    </button>
+    {#if step === 1 || step === 2}
+      <p class="reconfig-note">You can reconfigure these anytime via "Re-run onboarding" in the options menu.</p>
+    {/if}
 
     <!-- Progress dots -->
     <div class="progress-dots">
@@ -553,11 +597,12 @@
     font-size: clamp(1.4rem, 4vw, 2rem);
     font-weight: 300;
     font-style: italic;
-    line-height: 1.05;
+    line-height: 1.2;
     letter-spacing: -0.04em;
     color: var(--color-foreground);
     text-align: center;
-    margin: 0 0 2rem 0;
+    margin: 0 0 1.5rem 0;
+    padding: 0 0.2em;
     overflow-wrap: break-word;
     /* Passing glow sweep — gradient sweeps across via bg-position, creating a
        traveling highlight effect on the text without a permanent color change. */
@@ -582,71 +627,66 @@
     100% { background-position: -100% 0; }
   }
 
-  .welcome-actions-row {
+  .welcome-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 2rem;
+  }
+  .feature-tile {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: auto;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+    border: 1px solid var(--color-border-subtle);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    text-align: left;
+    transition: transform 0.2s ease, background 0.2s ease;
   }
-
-  .welcome-cta {
-    display: inline-flex;
+  .feature-tile:hover {
+    transform: translateY(-2px);
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  }
+  .feature-icon {
+    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: var(--radius-2xl);
-    background: var(--color-primary);
-    color: var(--color-primary-foreground);
-    font-family: var(--font-display);
-    font-size: var(--fs-lg);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    cursor: pointer;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 25%, transparent);
-    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+    flex-shrink: 0;
   }
-  .welcome-cta:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 35%, transparent);
-  }
-  .welcome-cta:active { transform: scale(0.97); box-shadow: 0 1px 4px color-mix(in srgb, var(--color-primary) 20%, transparent); }
-  :global(.welcome-arrow) {
-    transition: transform 0.2s ease;
-  }
-  .welcome-cta:hover :global(.welcome-arrow) { transform: translateX(3px); }
-
-  .welcome-skip {
-    background: none;
-    border: none;
-    color: var(--color-muted-foreground);
+  .feature-text {
     font-size: var(--fs-sm);
-    cursor: pointer;
-    padding: 0.5rem 0.75rem;
-    transition: color 0.15s ease;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-foreground);
   }
-  .welcome-skip:hover { color: var(--color-foreground); }
-
-  .welcome-footer {
-    font-size: var(--fs-xs);
-    color: var(--color-muted-foreground);
-    text-align: center;
-    margin: auto 0 0 0;
-    padding-top: 2rem;
-    opacity: 0.6;
+  .welcome-summon-wrap {
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 2rem;
   }
-
-
-
 
   /* ── Step Panel ── */
   .step-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     padding: 2rem 1.5rem;
   }
 
   .step-header {
     text-align: center;
     margin-bottom: 1.75rem;
+    flex-shrink: 0;
   }
 
   .step-number {
@@ -683,10 +723,18 @@
     flex-direction: column;
   }
   .section-label {
-    font-size: 10px;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.01em;
+    text-align: center;
+    color: var(--color-muted-foreground);
+  }
+  .lang-note {
+    margin: 0.4rem 0 0;
+    font-size: var(--fs-xs);
+    font-style: italic;
+    text-align: center;
     color: var(--color-muted-foreground);
   }
 
@@ -741,55 +789,7 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
 
-  /* Custom Theme Dropdown */
-  .dropdown-trigger {
-    display: flex;
-    align-items: center;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-    cursor: pointer;
-    transition: border-color 0.15s, background-color 0.15s;
-  }
-  .dropdown-trigger:hover {
-    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
-  }
-  .dropdown-list-container {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    right: 0;
-    margin-bottom: 0.25rem;
-    z-index: 60;
-    display: flex;
-    flex-direction: column;
-    max-height: 12rem;
-    overflow-y: auto;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-    box-shadow: var(--shadow-float);
-    backdrop-filter: blur(12px);
-  }
-  .dropdown-item {
-    display: flex;
-    align-items: center;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    background: none;
-    border: none;
-    transition: background-color 0.15s;
-    text-align: left;
-  }
-  .dropdown-item:hover {
-    background: var(--color-muted);
-  }
-  .dropdown-item--active {
-    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-muted));
-  }
-
-  /* Compact Swatch for Dropdown */
+  /* Compact palette swatch (shared by the theme grid cards) */
   .compact-swatch {
     position: relative;
     display: flex;
@@ -803,16 +803,24 @@
   .swatch-dot {
     flex: 1;
   }
-  .compact-theme-name {
-    font-size: var(--fs-sm);
-    color: var(--color-foreground);
+  /* Theme grid card: stacks the palette swatch over the short name. */
+  .theme-card {
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.5rem 0.35rem;
+    text-align: center;
+  }
+  .theme-card .compact-opt-title {
+    font-size: var(--fs-xs);
+    line-height: 1.15;
   }
   /* ── About You ── */
   .about-scroll {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    max-height: 22rem;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--color-muted) transparent;
@@ -826,10 +834,10 @@
   }
 
   .about-label {
-    font-size: var(--fs-xs);
+    font-family: var(--font-display);
+    font-size: var(--fs-sm);
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.01em;
     color: var(--color-muted-foreground);
   }
 
@@ -1026,18 +1034,19 @@
   }
 
 
-  .skip-link {
-    display: block;
-    width: 100%;
-    margin-top: 0.75rem;
-    text-align: center;
-    font-size: var(--fs-sm);
-    color: var(--color-muted-foreground);
-    cursor: pointer;
-    transition: color 0.15s;
+  /* Forwarded onto the <Button> child, so it must be :global per Svelte's
+     scoped-CSS rule (the analyzer can't see classes passed to children). */
+  :global(.skip-btn) {
+    opacity: 0.7;
   }
-  .skip-link:hover {
-    color: var(--color-foreground);
+  :global(.skip-btn):hover {
+    opacity: 1;
+  }
+  .reconfig-note {
+    margin: 0.6rem 0 0;
+    font-size: var(--fs-xs);
+    text-align: center;
+    color: var(--color-muted-foreground);
   }
 
   /* ── Progress Dots ── */
@@ -1135,9 +1144,6 @@
     }
     .unified-config-scroll {
       max-height: 50vh;
-    }
-    .about-scroll {
-      max-height: 18rem;
     }
   }
 

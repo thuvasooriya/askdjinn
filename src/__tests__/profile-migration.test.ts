@@ -25,7 +25,7 @@ describe("profile migration v1 → v2", () => {
 
     const migrated = migrateProfile(v1, 1);
 
-    expect(migrated.themeId).toBe("tokyonight-night");
+    expect(migrated.themeId).toBe("chocolate");
     expect(migrated.language).toBe("sinhala");
     expect(migrated.agentId).toBe("mithu");
     expect(migrated.onboarded).toBe(true);
@@ -55,14 +55,14 @@ describe("profile migration v1 → v2", () => {
   test("defaults themeId to chocolate when no theme field is present", () => {
     const v1Minimal = { agentId: "neel", language: "english" };
     const migrated = migrateProfile(v1Minimal, 1);
-    expect(migrated.themeId).toBe("tokyonight-night");
+    expect(migrated.themeId).toBe("chocolate");
     expect(migrated.agentId).toBe("neel");
   });
 
   test("falls back to defaults for invalid/missing essential fields", () => {
     const migrated = migrateProfile({}, 0);
 
-    expect(migrated.themeId).toBe("tokyonight-night");
+    expect(migrated.themeId).toBe("chocolate");
     expect(migrated.agentId).toBe("ruka");
     expect(migrated.language).toBe("english");
     expect(migrated.onboarded).toBe(false);
@@ -97,8 +97,8 @@ describe("profile migration v1 → v2", () => {
     expect(migrateProfile("not an object", 0).agentId).toBe("ruka");
   });
 
-  test("default profile has themeId tokyonight-night", () => {
-    expect(defaultProfile.themeId).toBe("tokyonight-night");
+  test("default profile has themeId chocolate (Dawn)", () => {
+    expect(defaultProfile.themeId).toBe("chocolate");
   });
 
   test("migrated profile matches UserProfile shape", () => {

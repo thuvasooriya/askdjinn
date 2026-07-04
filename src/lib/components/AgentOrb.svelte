@@ -24,27 +24,33 @@
     audioLevel = 0,
     size = 48,
     interactive = false,
+    agentId,
   }: {
     mode?: Mode;
     phase?: OrbState;
     audioLevel?: number;
     size?: number;
     interactive?: boolean;
+    /** Override which agent's orb to render. Defaults to the active profile
+     *  agent — pass explicitly when previewing a non-active agent (e.g. the
+     *  onboarding picker) so each preview shows its own color/shape. */
+    agentId?: string;
   } = $props();
 
   const profile = useProfile();
   const orb = createOrbState();
 
-  // Re-apply orb design whenever the agent (→ motion) or theme (→ color)
-  // changes. Shape comes from the agent preset; color is derived from the
-  // active theme's CSS variables. Single source of truth per axis.
+  // Re-apply orb design whenever the agent (→ motion + color) or theme (→
+  // color) changes. Shape comes from the agent preset; color is derived from
+  // the active theme's CSS variables, shuffled per agent so each leads with a
+  // distinct token. Single source of truth per axis.
   $effect(() => {
-    const agentId = profile.agentId;
+    const id = agentId ?? profile.agentId;
     const themeId = profile.themeId; // track theme so we re-read colors on switch
     untrack(() => {
-      const shape = AGENT_SHAPE[agentId];
+      const shape = AGENT_SHAPE[id];
       if (shape) Object.assign(orb.design, shape);
-      Object.assign(orb.design, readThemeOrbColors(agentId));
+      Object.assign(orb.design, readThemeOrbColors(id));
     });
     void themeId;
   });

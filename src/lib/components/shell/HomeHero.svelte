@@ -6,7 +6,9 @@
   import * as persist from '$lib/stores/persistence';
   import { Package, Search, Gift, Truck, Cake, Star, Heart, Bell, RefreshCw, ShoppingCart } from '@lucide/svelte';
   import { fade, fly } from 'svelte/transition';
+  import { cubicInOut } from 'svelte/easing';
   import { untrack, onDestroy } from 'svelte';
+  import DjinnBrand from '$lib/components/brand/DjinnBrand.svelte';
   import { useUI } from '$lib/stores/ui.svelte';
   import { renderMarkdown } from '$lib/markdown';
   import { DEFAULT_SUGGESTION_ICON, type SuggestionIconKey } from '$lib/suggestion-icons';
@@ -40,136 +42,107 @@
   let summoning = $state(false);
   let bubbleUpdating = $state(false);
 
-  const SUMMARY_STORE_ID = 'home-summary';
-  const VERSION = 1;
-  const TTL_MS = 86_400_000;
+  const userName = $derived.by(() => {
+    const fact = profile.savedFacts.find(f => f.category === 'preference' && /name/i.test(f.text))?.text;
+    if (!fact) return null;
+    const match = fact.match(/name is (.*)/i);
+    return match ? match[1].trim() : fact;
+  });
 
-  function summarySnapshot() {
-    return {
+  const HOME_CONTEXT_STORE_ID = 'home-context';
+  const HOME_CONTEXT_VERSION = 1;
+  // Safety cap only: we always SWR-refresh on mount, so the cache stays fresh
+  // on every successful load. If the refresh fails AND the cache is older than
+  // this, we stop trusting it. Freshness itself is driven by the server cache.
+  const HOME_CONTEXT_TTL_MS = 7 * 86_400_000;
+
+  interface HomeContextCache {
+    summary: string;
+    suggestions: Array<{ label: string; query: string; icon: SuggestionIconKey }>;
+    checkedAt: string;
+  }
+
+  function buildHomeContextBody() {
+    return untrack(() => ({
+      agentName: profile.agent.name,
+      agentTagline: profile.agent.tagline,
+      isReturningUser: session.isReturningUser,
+      userName: profile.savedFacts.find(f => f.category === 'preference' && /name/i.test(f.text))?.text ?? null,
+      language: profile.language,
       liked: lists.liked.map(e => ({ id: e.product.id, name: e.product.name, price: e.product.price, currency: e.product.currency, inStock: e.product.inStock })),
       watch: lists.watch.map(e => ({ id: e.product.id, name: e.product.name, price: e.product.price, currency: e.product.currency, inStock: e.product.inStock, targetPrice: e.targetPrice })),
       orderHistory: session.orderHistory,
-      preferences: profile.savedFacts.filter(f => f.confirmed).map(f => ({ label: f.text, value: f.text, category: f.category })),
-      city: profile.preferredCity ?? undefined,
-    };
+      savedFacts: profile.savedFacts.filter(f => f.confirmed).map(f => f.text),
+      city: profile.preferredCity,
+      recentSearches: ui.searchThreads.map(t => t.query).slice(0, 5),
+    }));
   }
 
-  function hasContextData() {
-    return lists.liked.length > 0 || lists.watch.length > 0 || session.orderHistory.length > 0;
+  // Stale-while-revalidate: paint the last-known summary + suggestions
+  // instantly from localStorage, then refresh in the background. Greeting is
+  // never cached (must stay unique), so it stays blank until the network lands.
+  function loadCachedForFirstPaint() {
+    const cached = persist.load<HomeContextCache | null>(HOME_CONTEXT_STORE_ID, HOME_CONTEXT_VERSION, null);
+    if (!cached) return;
+    if (Date.now() - new Date(cached.checkedAt).getTime() > HOME_CONTEXT_TTL_MS) return;
+    summary = cached.summary;
+    suggestions = cached.suggestions;
+    summaryCheckedAt = cached.checkedAt;
   }
 
-  // ── API calls (all use cerebras/gemma-4-31b server-side) ──
-
-  async function fetchGreeting(): Promise<string> {
-    // Always fetch fresh so every visit gets a unique greeting.
+  // ── Unified API call (one Cerebras round-trip for all three fields) ──
+  async function fetchHomeContext(force = false): Promise<void> {
     const t0 = performance.now();
     try {
-      const res = await fetch('/api/home-greeting', {
+      const res = await fetch('/api/home-context', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(untrack(() => ({
-          agentName: profile.agent.name,
-          agentTagline: profile.agent.tagline,
-          isReturningUser: session.isReturningUser,
-          userName: profile.savedFacts.find(f => f.category === 'preference' && /name/i.test(f.text))?.text ?? null,
-          preferredCity: profile.preferredCity,
-          language: profile.language,
-        }))),
+        body: JSON.stringify({ ...buildHomeContextBody(), force }),
       });
       const data = await res.json();
-      console.debug(`[home] greeting ${res.ok ? 'ok' : res.status} ${Math.round(performance.now() - t0)}ms`);
-      if (!res.ok) return `Hi, I'm ${profile.agent.name}`;
-      return data.greeting || `Hi, I'm ${profile.agent.name}`;
-    } catch (e) {
-      console.warn('[home] greeting failed', e);
-      return `Hi, I'm ${profile.agent.name}`;
-    }
-  }
-
-  async function fetchSummary(force = false): Promise<void> {
-    const cached = persist.load<{ summary: string; checkedAt: string } | null>(SUMMARY_STORE_ID, VERSION, null);
-    if (!force && cached && Date.now() - new Date(cached.checkedAt).getTime() < TTL_MS) {
-      summary = cached.summary;
-      summaryCheckedAt = cached.checkedAt;
-      return;
-    }
-    if (!hasContextData()) return;
-    const t0 = performance.now();
-    try {
-      const res = await fetch('/api/home-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(untrack(() => summarySnapshot())),
-      });
-      const data = await res.json();
-      console.debug(`[home] summary ${res.ok ? 'ok' : res.status} ${Math.round(performance.now() - t0)}ms`);
-      if (data.summary) {
-        summary = data.summary;
+      console.debug(`[home] context ${res.ok ? 'ok' : res.status} ${Math.round(performance.now() - t0)}ms`);
+      if (typeof data.greeting === 'string' && data.greeting) greeting = data.greeting;
+      if (typeof data.summary === 'string') summary = data.summary;
+      if (Array.isArray(data.suggestions)) suggestions = data.suggestions.slice(0, 3);
+      if (data.checkedAt) {
         summaryCheckedAt = data.checkedAt;
-        persist.save(SUMMARY_STORE_ID, VERSION, { summary, checkedAt: summaryCheckedAt });
+        persist.save(HOME_CONTEXT_STORE_ID, HOME_CONTEXT_VERSION, {
+          summary, suggestions, checkedAt: summaryCheckedAt,
+        });
       }
     } catch (e) {
-      console.warn('[home] summary failed', e);
-    }
-  }
-
-  async function fetchSuggestions(): Promise<void> {
-    // Always fetch fresh from gemma so cards reflect current context and vary.
-    const t0 = performance.now();
-    try {
-      const res = await fetch('/api/home-suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(untrack(() => ({
-          liked: lists.liked.map((l: { product: { name: string; price?: number; inStock?: boolean } }) => ({ name: l.product.name, price: l.product.price, inStock: l.product.inStock })),
-          watch: lists.watch.map((w: { product: { name: string }; targetPrice?: number }) => ({ name: w.product.name, targetPrice: w.targetPrice })),
-          orderHistory: session.orderHistory,
-          preferredCity: profile.preferredCity,
-          recentSearches: ui.searchThreads.map(t => t.query).slice(0, 5),
-          savedFacts: profile.savedFacts.filter(f => f.confirmed).map(f => f.text),
-        }))),
-      });
-      const data = await res.json();
-      console.debug(`[home] suggestions ${res.ok ? 'ok' : res.status} ${Math.round(performance.now() - t0)}ms`);
-      if (data.suggestions?.length) {
-        suggestions = data.suggestions.slice(0, 3);
-      }
-    } catch (e) {
-      console.warn('[home] suggestions failed', e);
+      console.warn('[home] context failed', e);
     }
   }
 
   // ── Intro orchestration ─────────────────────────────────
-  // Timeline is decoupled from network latency: the orb animates on a schedule
-  // and data fades in whenever it lands. Cerebras calls are SERIALIZED
-  // (greeting -> summary -> suggestions) so we never fire a concurrent burst
-  // that trips gemma's rate limit and triggers multi-second retry backoff --
-  // that burst was what made the orb look "stuck" after the greeting.
+  // Timeline is decoupled from network: the orb animates on a fixed schedule
+  // and data fades in whenever it lands. A single unified call (cached
+  // server-side) replaces the old serialized greeting -> summary -> suggestions
+  // burst, so there is no rate-limit reason to stagger fetches anymore.
   async function runIntro() {
     introStep = 'spawn';
+    loadCachedForFirstPaint();
+    void summonContext(false);     // fire immediately; orb works until data lands
     await delay(400);
 
-    greeting = await fetchGreeting();
     introStep = 'greet';
     await delay(450);
 
-    // Summon: orb shows its working animation while summary loads (capped).
     introStep = 'summon';
-    await summonSummary(false);
+    await delay(600);
 
-    // Settle; fire suggestions AFTER summary so we never hit cerebras twice at once.
     introStep = 'settle';
-    void fetchSuggestions();
     await delay(450);
     introStep = 'idle';
   }
 
-  // Summary fetch with a working indicator + a safety timeout, so the UI can
-  // never hang on a slow/stuck gemma call. `glow` flashes the bubble (hold-refresh).
-  async function summonSummary(force: boolean, glow = false): Promise<void> {
+  // Context fetch with a working indicator + safety cap, so the orb can never
+  // spin forever on a stuck call. `glow` flashes the summary bubble (refresh).
+  async function summonContext(force: boolean, glow = false): Promise<void> {
     summoning = true;
     try {
-      await Promise.race([fetchSummary(force), delay(6000)]);
+      await Promise.race([fetchHomeContext(force), delay(6000)]);
       if (glow) bubbleUpdating = true;
     } finally {
       summoning = false;
@@ -198,7 +171,7 @@
         untrack(() => {
           holding = false;
           holdProgress = 0;
-          void summonSummary(true, true);
+          void summonContext(true, true);
           startCooldown();
         });
         return;
@@ -237,7 +210,7 @@
   const staticHints: Array<{ label: string; query: string; icon: SuggestionIconKey }> = [
     { label: 'Cakes under LKR 8000', query: 'find chocolate cakes under 8000', icon: 'cake' },
     { label: 'Birthday gifts in Colombo', query: 'gift ideas for a birthday in Colombo', icon: 'gift' },
-    { label: 'Track VPAY827982BA', query: 'track my order VPAY827982BA', icon: 'track' },
+    { label: 'Track an order', query: 'help me track an order', icon: 'track' },
   ];
   const displayHints = $derived(
     introStep === 'idle' ? (suggestions.length > 0 ? suggestions : staticHints) : []
@@ -256,10 +229,17 @@
 </script>
 
 <div class="home-hero" data-step={introStep}>
+  <!-- Top Center Brand (Fixed) -->
+  <div class="hero-brand" in:fly={{ y: -30, duration: 600, easing: cubicInOut }}>
+    <DjinnBrand size={40} />
+  </div>
+
+
   <!-- Greeting -->
   {#if introStep !== 'spawn'}
     <div class="greeting-zone" transition:fade={{ duration: 400 }}>
-      <p class="greeting-text">{greeting || `Hi, I'm ${profile.agent.name}`}</p>
+      <h1 class="hero-title">Hi{userName ? ` ${userName}` : ''}, I'm <span class="agent-accent">{profile.agent.name}</span></h1>
+      <p class="greeting-text">{greeting || 'What can I help you find today?'}</p>
     </div>
   {/if}
 
@@ -332,19 +312,44 @@
     margin: 0 auto;
   }
 
+  .hero-brand {
+    position: fixed;
+    top: max(2rem, 6vh);
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 20;
+  }
   /* ── Greeting ──────────────────────────────────────────── */
   .greeting-zone {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.25rem;
   }
-  .greeting-text {
+  .hero-title {
     font-family: var(--font-display);
-    font-size: clamp(1.15rem, 3vw, 1.4rem);
-    font-weight: 600;
+    font-size: clamp(1.4rem, 4vw, 1.75rem);
+    font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.1;
     color: var(--color-foreground);
+    margin: 0;
+  }
+  .agent-accent {
+    color: var(--color-primary);
+  }
+  .greeting-text {
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: var(--color-foreground-muted);
     margin: 0;
   }
 
@@ -366,7 +371,7 @@
   }
   .smoke-text {
     margin: 0;
-    font-size: var(--fs-md);
+    font-size: 0.9rem;
     line-height: 1.55;
     color: var(--color-foreground);
   }

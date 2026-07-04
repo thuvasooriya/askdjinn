@@ -11,7 +11,7 @@
  * (see client-context.ts). The server is a thin schemas-only stream proxy.
  */
 
-import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare } from "@lucide/svelte";
+import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Clock, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare } from "@lucide/svelte";
 import type { LlmTool } from "$lib/llm-engine";
 import type { OrderRecord } from "$lib/stores/session.svelte";
 import type { Product } from "$lib/shopping-engine";
@@ -43,6 +43,20 @@ async function fetchJson(url: string, init: RequestInit = {}, label = "Request",
   return data;
 }
 
+function hasOrderTrackingCache(order: OrderRecord | undefined): boolean {
+  return Boolean(
+    order?.status ||
+      order?.statusDisplay ||
+      order?.tracking?.length ||
+      order?.amount ||
+      order?.recipient ||
+      order?.deliveryDate ||
+      order?.orderDate ||
+      order?.shippedDate ||
+      order?.comments,
+  );
+}
+
 export type ToolParam = ReturnType<typeof param>;
 
 export interface ToolDefinition {
@@ -57,7 +71,7 @@ export interface ToolDefinition {
     icon: typeof Search;
     label: string;
   };
-  category: "shopping" | "ui" | "memory" | "web";
+  category: "shopping" | "ui" | "memory" | "web" | "grounding";
   executeClient?: (
     args: Record<string, unknown>,
     ctx: ClientToolContext,
@@ -113,6 +127,107 @@ export interface ClientToolContext {
 // ── Tool Definitions ──────────────────────────────────────────────────────────
 
 export const TOOLS: Record<string, ToolDefinition> = {
+
+  datetime_now: {
+    name: "datetime_now",
+    description: "Get the current date and time from the user's browser immediately. Use before resolving relative dates/times like today, tomorrow, tonight, this weekend, next week, Sinhala/Tamil New Year, Mother's Day, or any time-sensitive answer.",
+    parameters: {
+      type: "object",
+      properties: {
+        time_zone: param("string", "Optional IANA timezone to format in. Defaults to the browser timezone, with Asia/Colombo always included."),
+      },
+      required: [],
+    },
+    ui: { icon: Clock, label: "Checking time" },
+    category: "grounding",
+    executeClient: async (args) => {
+      const now = new Date();
+      const browserTimeZone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      const requestedTimeZone =
+        typeof args.time_zone === "string" && args.time_zone.trim()
+          ? args.time_zone.trim()
+          : browserTimeZone;
+
+      function formatParts(timeZone: string) {
+        const numericParts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+          .formatToParts(now)
+          .reduce<Record<string, number>>((acc, part) => {
+            if (part.type !== "literal") acc[part.type] = Number(part.value);
+            return acc;
+          }, {});
+        const date = new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(now);
+        const time = new Intl.DateTimeFormat("en-GB", {
+          timeZone,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(now);
+        const weekday = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+        }).format(now);
+        const offsetMinutes = Math.round(
+          (Date.UTC(
+            numericParts.year,
+            numericParts.month - 1,
+            numericParts.day,
+            numericParts.hour,
+            numericParts.minute,
+            numericParts.second,
+          ) -
+            now.getTime()) /
+            60_000,
+        );
+        return { date, time, weekday, timeZone, offsetMinutes };
+      }
+
+      function addDaysISO(days: number, timeZone: string) {
+        const shifted = new Date(now);
+        shifted.setUTCDate(shifted.getUTCDate() + days);
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(shifted);
+      }
+
+      const requested = formatParts(requestedTimeZone);
+      const sriLanka = formatParts("Asia/Colombo");
+      return {
+        nowIso: now.toISOString(),
+        unixMs: now.getTime(),
+        browserTimeZone,
+        locale:
+          typeof navigator !== "undefined"
+            ? navigator.language
+            : Intl.DateTimeFormat().resolvedOptions().locale,
+        requested,
+        sriLanka,
+        relativeDates: {
+          today: requested.date,
+          tomorrow: addDaysISO(1, requestedTimeZone),
+          dayAfterTomorrow: addDaysISO(2, requestedTimeZone),
+        },
+      };
+    },
+  },
 
   product_search: {
     name: "product_search",
@@ -301,7 +416,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
     parameters: {
       type: "object",
       properties: {
-        order_number: param("string", "The Kapruka order number (e.g. VPAY827982BA for testing)"),
+        order_number: param("string", "The Kapruka order number to track"),
       },
       required: ["order_number"],
     },
@@ -311,7 +426,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
       const orderNumber = args.order_number as string;
 
       const cached = ctx.onGetOrderRecord(orderNumber);
-      if (cached && Date.now() - cached.lastCheckedAt < 300_000) {
+      if (cached && hasOrderTrackingCache(cached) && Date.now() - cached.lastCheckedAt < 300_000) {
         const panel = ctx.onOpenPanel("order-tracking", { ...cached });
         return { cached: true, panel, ...cached };
       }
@@ -1035,6 +1150,14 @@ export function summarizeToolCall(
 ): { summary: string; detail?: string } {
   const ok = response.error == null;
   switch (name) {
+    case "datetime_now":
+      return {
+        summary: "Checked current date/time",
+        detail:
+          typeof response.requested === "object" && response.requested
+            ? `${(response.requested as { date?: string; time?: string; timeZone?: string }).date ?? ""} ${(response.requested as { date?: string; time?: string; timeZone?: string }).time ?? ""} ${(response.requested as { date?: string; time?: string; timeZone?: string }).timeZone ?? ""}`.trim()
+            : undefined,
+      };
     case "product_search":
       return { summary: `Searched "${args.q ?? ""}"`, detail: `${response.count ?? (Array.isArray(response.products) ? response.products.length : 0)} results` };
     case "product_get_details": {

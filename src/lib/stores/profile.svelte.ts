@@ -60,25 +60,8 @@ class ProfileStore {
       }
     }
 
-    const originalThemeId = loaded.themeId;
-
-    // Auto-detect theme for first-time users: when no stored profile exists,
-    // respect the system color scheme and pick the appropriate TokyoNight variant.
-    // Once a profile has been persisted (even with tokyonight-night), this
-    // check is skipped — the user's stored choice takes precedence.
-    const storageKey = `djinn:${PROFILE_STORE_ID}`;
-    const isFirstLoad = typeof localStorage === "undefined" || localStorage.getItem(storageKey) === null;
-    if (isFirstLoad && loaded.themeId === "tokyonight-night" && typeof window !== "undefined") {
-      const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-      if (prefersLight) loaded.themeId = "tokyonight-day";
-    }
-
     this.profile = loaded;
     this.hydrated = true;
-
-    // Persist only when we auto-resolved, so the resolved theme survives reload
-    if (this.profile.themeId !== originalThemeId) this.commit();
-
     this.applyTheme();
   }
 

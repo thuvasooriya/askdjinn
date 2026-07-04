@@ -15,6 +15,7 @@ describe("themes registry", () => {
     for (const theme of THEME_LIST) {
       expect(theme.id).toBeTruthy();
       expect(theme.name).toBeTruthy();
+      expect(theme.shortName).toBeTruthy();
       expect(theme.description).toBeTruthy();
       expect(["light", "dark"]).toContain(theme.mode);
       expect(Array.isArray(theme.swatch)).toBe(true);
@@ -36,10 +37,12 @@ describe("themes registry", () => {
       "chocolate",
       "catppuccin-latte",
       "catppuccin-frappe",
-      "catppuccin-macchiato",
       "catppuccin-mocha",
       "tokyonight-night",
       "tokyonight-day",
+      "gruvbox-material-dark",
+      "gruvbox-material-light",
+      "dusty-rose",
     ];
     for (const id of expectedIds) {
       expect(THEMES[id], `missing theme ${id}`).toBeDefined();
@@ -47,19 +50,22 @@ describe("themes registry", () => {
     }
   });
 
-  test("ships all 7 themes (Chocolate + 4 Catppuccin + 2 TokyoNight)", () => {
-    expect(THEME_LIST.length).toBe(7);
+  test("ships all 9 themes", () => {
+    expect(THEME_LIST.length).toBe(9);
     const catppuccin = THEME_LIST.filter(t => t.id.startsWith("catppuccin-"));
     const tokyonight = THEME_LIST.filter(t => t.id.startsWith("tokyonight-"));
-    expect(catppuccin.length).toBe(4); // latte, frappe, macchiato, mocha
+    const gruvbox = THEME_LIST.filter(t => t.id.startsWith("gruvbox-"));
+    expect(catppuccin.length).toBe(3); // latte, frappe, mocha
     expect(tokyonight.length).toBe(2); // night, day
+    expect(gruvbox.length).toBe(2); // material dark, material light
     expect(THEMES.chocolate).toBeDefined();
+    expect(THEMES["dusty-rose"]).toBeDefined();
   });
 
   test("light themes are correctly marked", () => {
     const lightThemes = THEME_LIST.filter(t => t.mode === "light");
     const lightIds = lightThemes.map(t => t.id).sort();
-    expect(lightIds).toEqual(["catppuccin-latte", "tokyonight-day"]);
+    expect(lightIds).toEqual(["catppuccin-latte", "dusty-rose", "gruvbox-material-light", "tokyonight-day"]);
   });
 
   test("chocolate is the default theme and is dark", () => {
@@ -74,14 +80,14 @@ describe("getTheme", () => {
     expect(mocha.name).toBe("Catppuccin Mocha");
   });
 
-  test("falls back to tokyonight-night for an unknown id", () => {
-    expect(getTheme("does-not-exist").id).toBe("tokyonight-night");
+  test("falls back to chocolate (Dawn) for an unknown id", () => {
+    expect(getTheme("does-not-exist").id).toBe("chocolate");
   });
 
-  test("falls back to tokyonight-night for null/undefined", () => {
-    expect(getTheme(null).id).toBe("tokyonight-night");
-    expect(getTheme(undefined).id).toBe("tokyonight-night");
-    expect(getTheme("").id).toBe("tokyonight-night");
+  test("falls back to chocolate (Dawn) for null/undefined", () => {
+    expect(getTheme(null).id).toBe("chocolate");
+    expect(getTheme(undefined).id).toBe("chocolate");
+    expect(getTheme("").id).toBe("chocolate");
   });
 });
 
@@ -91,10 +97,12 @@ describe("isThemeId", () => {
       "chocolate",
       "catppuccin-latte",
       "catppuccin-frappe",
-      "catppuccin-macchiato",
       "catppuccin-mocha",
       "tokyonight-night",
       "tokyonight-day",
+      "gruvbox-material-dark",
+      "gruvbox-material-light",
+      "dusty-rose",
     ];
     for (const id of validIds) {
       expect(isThemeId(id), `${id} should be valid`).toBe(true);

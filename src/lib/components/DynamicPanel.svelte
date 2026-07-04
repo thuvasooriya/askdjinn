@@ -4,7 +4,7 @@
   // User edits form -> panel.data updates -> agent reads reactively.
   // User submits -> resolve fires -> agent continues.
 
-  import { Check, Plus, Copy, Trash2, MapPin, Heart, ShoppingBag, Truck, Edit3, ChevronRight, AlertCircle } from "@lucide/svelte";
+  import { Check, CheckCircle2, Circle, Plus, Copy, Trash2, MapPin, Heart, ShoppingBag, Truck, Edit3, ChevronRight, AlertCircle } from "@lucide/svelte";
   import type { DynamicPanel } from "$lib/stores/ui.svelte";
   import type { Address } from "$lib/stores/addresses.svelte";
   import { useAddresses } from "$lib/stores/addresses.svelte";
@@ -39,6 +39,13 @@
   /** Coerce a (possibly unknown) data value into a string for input/textarea. */
   function str(v: unknown): string {
     return v == null ? "" : String(v);
+  }
+
+  function trackingProgress(): Array<{ step?: string; timestamp?: string }> {
+    return Array.isArray(panel.data.progress)
+      ? [...(panel.data.progress as Array<{ step?: string; timestamp?: string }>)]
+          .reverse()
+      : [];
   }
 
   function submit() {
@@ -260,9 +267,15 @@
         {/if}
         {#if Array.isArray(panel.data.progress) && panel.data.progress.length > 0}
           <div class="tracking-timeline">
-            {#each panel.data.progress as step, i (i)}
+            {#each trackingProgress() as step, i (i)}
               <div class="tracking-step">
-                <div class="tracking-step-dot {i === 0 ? 'active' : ''}"></div>
+                {#if i === 0}
+                  <CheckCircle2 class="tracking-step-icon tracking-step-icon--active" />
+                {:else if step.timestamp}
+                  <CheckCircle2 class="tracking-step-icon tracking-step-icon--done" />
+                {:else}
+                  <Circle class="tracking-step-icon" />
+                {/if}
                 <div class="tracking-step-info">
                   <span class="tracking-step-label">{step.step}</span>
                   {#if step.timestamp}<span class="tracking-step-time">{step.timestamp}</span>{/if}
@@ -324,9 +337,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem 1rem 0.75rem;
+    height: var(--panel-header-h);
+    padding: 0 1rem;
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-xl);
+    line-height: 1;
+    font-weight: 700;
+    color: var(--color-foreground);
   }
 
   .panel-body { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
@@ -436,12 +458,19 @@
     content: ""; position: absolute; left: 0.25rem; top: 1.25rem; bottom: -0.25rem;
     width: 2px; background: var(--color-border);
   }
-  .tracking-step-dot {
-    width: 0.625rem; height: 0.625rem; border-radius: var(--radius-full);
-    border: 2px solid var(--color-border); background: var(--color-background);
-    flex-shrink: 0; margin-top: 0.125rem; z-index: 1;
+  /* Lucide receives these classes through component forwarding. */
+  .tracking-step :global(.tracking-step-icon) {
+    width: 1rem; height: 1rem; flex-shrink: 0; margin-top: 0.0625rem;
+    color: var(--color-border); background: var(--color-surface); border-radius: var(--radius-full); z-index: 1;
   }
-  .tracking-step-dot.active { border-color: var(--color-primary); background: var(--color-primary); }
+  .tracking-step :global(.tracking-step-icon--active) {
+    color: var(--color-primary); animation: tracking-pulse 1.4s ease-in-out infinite;
+  }
+  .tracking-step :global(.tracking-step-icon--done) { color: var(--color-success); }
+  @keyframes tracking-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.12); opacity: 0.75; }
+  }
   .tracking-step-info { display: flex; flex-direction: column; gap: 0.125rem; }
   .tracking-step-label { font-size: var(--fs-md); font-weight: 500; color: var(--color-foreground); }
   .tracking-step-time { font-size: var(--fs-xs); color: var(--color-muted-foreground); }

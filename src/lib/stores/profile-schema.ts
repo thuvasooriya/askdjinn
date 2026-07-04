@@ -36,7 +36,7 @@ export const PROFILE_VERSION = 2;
 export const defaultProfile: UserProfile = {
   language: "english",
   agentId: "ruka",
-  themeId: "tokyonight-night",
+  themeId: "chocolate",
   onboarded: false,
   micTested: false,
   preferredCity: null,
@@ -58,7 +58,7 @@ export function migrateProfile(raw: unknown, _fromVersion: number): UserProfile 
     ? (obj.agentId as AgentId)
     : obj.personality === "bold" ? "ruka" : obj.personality === "professional" ? "neel" : "ruka";
 
-  const themeId: ThemeId = isThemeId(obj.themeId) ? (obj.themeId as ThemeId) : "tokyonight-night";
+  const themeId: ThemeId = isThemeId(obj.themeId) ? (obj.themeId as ThemeId) : "chocolate";
 
   const factsRaw = Array.isArray(obj.savedFacts) ? obj.savedFacts : [];
   const savedFacts: SavedFact[] = factsRaw

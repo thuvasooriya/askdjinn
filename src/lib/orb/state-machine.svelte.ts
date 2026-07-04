@@ -58,16 +58,20 @@ export const AGENT_SHAPE: Record<string, OrbShape> = {
   neel:  { blobSize: 0.34, soft: 0.24, morphSpeed: 1.1, breathe: 0.02, glow: 0.80, sat: 1.05 },
 };
 
-/** Read the orb's color fields from the active theme's CSS variables.
- *  Maps semantic theme colors → orb states:
- *    primary      → cIdle   (the dominant orb color)
- *    accent       → cWork   (active/processing)
- *    success      → cListen (live-mode, "hearing you")
- *    primary-lit  → cStream (streaming response; primary lightened)
- *    destructive  → cError
- *    background   → cBg
+/** Read the orb's color fields from the active theme's CSS variables, then
+ *  SHUFFLE which semantic token leads each agent so the four orbs are visually
+ *  distinct on screen -- "shuffling the common theme variables" per agent:
  *
- *  Reads computed style once per call (called on mount + theme change,
+ *    ruka  (Warm/Bold)          idle=primary   work=accent
+ *    mithu (Moody/Moon)         idle=accent    work=primary
+ *    kavi  (Poetic/Thoughtful)  idle=success   work=accent
+ *    neel  (Sharp/Analytical)   idle=primary∘accent blend   work=success
+ *
+ *  Each agent's idle color is a DISTINCT theme token, so four orbs side by
+ *  side never collide. Streaming is always the idle color lightened toward
+ *  white; cError=destructive, cBg=background are shared.
+ *
+ *  Reads computed style once per call (called on mount + theme/agent change,
  *  never per-frame). Falls back to defaultDesign values if a var is unset
  *  (e.g. during SSR or before hydration). */
 export function readThemeOrbColors(agentId?: string): Pick<DesignParams, 'cIdle' | 'cWork' | 'cListen' | 'cStream' | 'cError' | 'cBg'> {
@@ -100,21 +104,23 @@ export function readThemeOrbColors(agentId?: string): Pick<DesignParams, 'cIdle'
   const destructive = toHex(get('--color-destructive', defaultDesign.cError), defaultDesign.cError);
   const bg = toHex(get('--color-background', defaultDesign.cBg), defaultDesign.cBg);
 
+  // Per-agent shuffle: each idle leads with a DISTINCT theme token so four
+  // orbs side by side never read as the same color. See doc comment above.
   if (agentId === "mithu") {
-    // Mithu (Moody/Moon): Swaps primary and accent to express a cooler, accent-dominated personality.
+    // Mithu (Moody/Moon): accent-led, cooler feel.
     const stream = mixToHex(accent, '#ffffff', 0.6);
     return { cIdle: accent, cWork: primary, cListen: success, cStream: stream, cError: destructive, cBg: bg };
   } else if (agentId === "kavi") {
-    // Kavi (Poetic/Thoughtful): Blends primary and accent 50/50, soft white streaming color.
-    const blend = mixToHex(primary, accent, 0.5);
-    const stream = mixToHex(blend, '#ffffff', 0.7);
-    return { cIdle: blend, cWork: accent, cListen: success, cStream: stream, cError: destructive, cBg: bg };
+    // Kavi (Poetic/Thoughtful): success-led (green), soft white streaming.
+    const stream = mixToHex(success, '#ffffff', 0.7);
+    return { cIdle: success, cWork: accent, cListen: primary, cStream: stream, cError: destructive, cBg: bg };
   } else if (agentId === "neel") {
-    // Neel (Sharp/Analytical): Primary color for idle, Success (often teal/green) for active/working.
-    const stream = mixToHex(primary, '#ffffff', 0.5);
-    return { cIdle: primary, cWork: success, cListen: accent, cStream: stream, cError: destructive, cBg: bg };
+    // Neel (Sharp/Analytical): a primary∘accent blend distinct from both.
+    const idle = mixToHex(primary, accent, 0.5);
+    const stream = mixToHex(idle, '#ffffff', 0.5);
+    return { cIdle: idle, cWork: success, cListen: accent, cStream: stream, cError: destructive, cBg: bg };
   } else {
-    // Ruka (Warm/Bold): Standard primary/accent mapping.
+    // Ruka (Warm/Bold): primary-led, the brand-dominant mapping.
     const stream = mixToHex(primary, '#ffffff', 0.6);
     return { cIdle: primary, cWork: accent, cListen: success, cStream: stream, cError: destructive, cBg: bg };
   }

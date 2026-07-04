@@ -169,11 +169,18 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.625rem 0.875rem;
+    height: var(--panel-header-h);
+    padding: 0 0.875rem;
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
   }
-  .conv-title { font-size: var(--fs-lg); font-weight: 700; color: var(--color-foreground); }
+  .conv-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-xl);
+    line-height: 1;
+    font-weight: 700;
+    color: var(--color-foreground);
+  }
   .conv-count {
     font-size: 0.5625rem; font-weight: 600; color: var(--color-muted-foreground);
     padding: 0.0625rem 0.3125rem; border-radius: var(--radius-sm); background: var(--color-muted);

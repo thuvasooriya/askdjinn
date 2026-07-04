@@ -95,7 +95,14 @@ function normalizeSession(value: unknown): SessionState {
   // Migrate from old orderHistory: string[] to orderRecords: OrderRecord[]
   let orderRecords: OrderRecord[] = [];
   if (Array.isArray(record.orderRecords)) {
-    orderRecords = (record.orderRecords as OrderRecord[]).slice(0, MAX_HISTORY);
+    orderRecords = (record.orderRecords as OrderRecord[])
+      .filter((order) => isString(order.orderNumber))
+      .slice(0, MAX_HISTORY)
+      .map((order) => ({
+        ...order,
+        createdAt: typeof order.createdAt === "number" ? order.createdAt : Date.now(),
+        lastCheckedAt: typeof order.lastCheckedAt === "number" ? order.lastCheckedAt : 0,
+      }));
   } else if (Array.isArray(record.orderHistory)) {
     orderRecords = (record.orderHistory as string[]).filter(isString).slice(0, MAX_HISTORY).map(n => ({
       orderNumber: n,
@@ -154,16 +161,6 @@ class SessionStore {
       const existing = loadSession();
       this.session = existing.session;
       this.isReturningUser = existing.returning;
-      // Seed default test order if no order records exist
-      if (this.session.orderRecords.length === 0) {
-        this.upsertOrderRecord({
-          orderNumber: "VPAY827982BA",
-          createdAt: Date.now(),
-          status: "delivered",
-          statusDisplay: "Delivered",
-          lastCheckedAt: 0,
-        });
-      }
     }
   }
 
@@ -198,7 +195,7 @@ class SessionStore {
 
   upsertOrderRecord(record: OrderRecord): void {
     const idx = this.session.orderRecords.findIndex(r => r.orderNumber === record.orderNumber);
-    const updated = { ...record, lastCheckedAt: Date.now() };
+    const updated = { ...record, lastCheckedAt: record.lastCheckedAt };
     let records: OrderRecord[];
     if (idx >= 0) {
       records = [...this.session.orderRecords];

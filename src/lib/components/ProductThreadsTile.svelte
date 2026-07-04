@@ -148,13 +148,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
+    height: var(--panel-header-h);
+    padding: 0 1rem;
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
   }
   .threads-header-left { display: flex; align-items: center; gap: 0.375rem; }
   .threads-header-right { display: flex; align-items: center; gap: 0.5rem; }
-  .threads-title { font-size: var(--fs-lg); font-weight: 700; color: var(--color-foreground); }
+  .threads-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-xl);
+    line-height: 1;
+    font-weight: 700;
+    color: var(--color-foreground);
+  }
   .threads-count {
     font-size: var(--fs-xs);
     font-weight: 600;

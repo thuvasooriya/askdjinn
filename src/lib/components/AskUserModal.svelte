@@ -97,9 +97,13 @@
   .response-bubble {
     width: 100%;
     max-height: 280px;
-    border-radius: var(--radius-2xl);
-    border: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-surface-elevated) 85%, transparent);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border-subtle);
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 60%),
+      color-mix(in srgb, var(--color-surface) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     padding: 0.75rem 0.875rem;
     gap: 0.5rem;
     box-shadow: var(--shadow-float);
