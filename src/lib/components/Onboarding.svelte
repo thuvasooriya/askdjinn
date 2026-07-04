@@ -601,7 +601,7 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    min-height: 100%;
+    min-height: 0;
     padding: 2rem 1.5rem 0;
   }
 
@@ -1073,8 +1073,8 @@
     width: 100%;
     max-width: 28rem;
   }
-  .actions-row > :global(button) {
-    border-radius: 0.5rem;
+  .actions-row :global(button) {
+    border-radius: 0.375rem;
   }
 
 
