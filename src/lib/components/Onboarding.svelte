@@ -569,7 +569,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2rem 1.5rem 3rem;
+    padding: 2rem 1.5rem 1.5rem;
     background: color-mix(in srgb, var(--color-background) 92%, var(--color-primary) 2%);
     overflow-y: auto;
   }
