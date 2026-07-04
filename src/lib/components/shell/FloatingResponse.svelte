@@ -43,17 +43,20 @@
   // expanded = full response bubble
   let collapsed = $state(true);
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
+  let _suppressCollapse = false;
 
-  // Auto-expand when there's ongoing activity (streaming, pending tools)
+  // Auto-expand when there's ongoing activity (streaming, pending tools).
+  // Skip in live mode — the pill handles status display there.
   $effect(() => {
     const _stream = lastTurn?.streaming;
     const _pending = hasPendingToolCall;
+    if (liveActive) return;
     if (_stream || _pending) {
       collapsed = false;
     }
   });
 
-  // Auto-collapse after 6s idle (no streaming, no pending tools)
+  // Auto-collapse after idle timeout
   $effect(() => {
     const _stream = lastTurn?.streaming;
     const _pending = hasPendingToolCall;
@@ -69,6 +72,7 @@
 
   // Collapse when user clicks outside the bubble container
   function onDocumentClick(e: MouseEvent) {
+    if (_suppressCollapse) return;
     if (!containerEl) return;
     if (containerEl.contains(e.target as Node)) return;
     collapsed = true;
@@ -80,10 +84,16 @@
     return () => document.removeEventListener("click", onDocumentClick);
   });
 
-  function expand() { collapsed = false; }
+  function expand() {
+    collapsed = false;
+    _suppressCollapse = true;
+    queueMicrotask(() => { _suppressCollapse = false; });
+  }
+
   function collapse() { collapsed = true; }
 
   onDestroy(() => clearTimeout(collapseTimer));
+
   // ── ─────────────────────────────────────────────────────────────────────────
 
   // ── Tool-call grouping ─────────────────────────────────────────────────────
@@ -195,7 +205,7 @@
   <div bind:this={containerEl} class="floating-bubble-container" transition:fly={{ y: 20, duration: reducedMotion ? 0 : 250 }}>
     {#if collapsed}
       <!-- Collapsed pill — tap to expand -->
-      <button type="button" class="status-pill" onclick={expand}>
+      <button type="button" class="status-pill glass shadow-md" onclick={expand}>
         {#if statusText}
           {#if isError}
             <AlertCircle class="h-3 w-3 text-red-500" />
@@ -282,25 +292,19 @@
   }
 
   .status-pill {
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-xl);
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
     border: 1px solid var(--color-border-subtle);
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 60%),
-      color-mix(in srgb, var(--color-surface) 72%, transparent);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     font-size: var(--fs-sm);
-    font-weight: 700;
-    color: var(--color-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    box-shadow: var(--shadow-float);
+    font-weight: 600;
+    color: var(--color-foreground);
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
   }
   .status-pill:hover {
     transform: scale(1.03);
