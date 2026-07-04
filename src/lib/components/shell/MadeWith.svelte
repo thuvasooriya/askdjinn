@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Heart, Copyright } from "@lucide/svelte";
+  import { Heart, Copyright, Github } from "@lucide/svelte";
 </script>
 
 <div class="made-with-wrapper">
   <div class="plaque">
     <div class="col-made">made with</div>
     <div class="col-love">
-      <a href="https://github.com/thuvasooriya" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+      <a href="https://github.com/sponsors/thuvasooriya" target="_blank" rel="noopener noreferrer" aria-label="GitHub Sponsors">
         <Heart size={18} class="love-icon" />
       </a>
     </div>
@@ -22,6 +22,9 @@
     <Copyright size={11} class="copy-icon" />
     <span>{new Date().getFullYear()}</span>
     <a href="https://www.thuvasooriya.me/" target="_blank" rel="noopener noreferrer">thuvasooriya</a>
+    <a href="https://github.com/thuvasooriya/askdjinn" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub">
+      <Github size={14} class="gh-icon" />
+    </a>
   </div>
 </div>
 
@@ -121,8 +124,12 @@
     color: var(--color-muted-foreground);
   }
 
-  :global(.copy-icon) {
+  :global(.copy-icon),
+  :global(.gh-icon) {
     color: var(--color-muted-foreground);
+  }
+  :global(.gh-icon):hover {
+    color: var(--color-foreground);
   }
 
   .subtitle a {
