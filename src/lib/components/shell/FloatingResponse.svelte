@@ -26,8 +26,13 @@
   const lastTurn = $derived(conv.lastTurn);
   const lastTurnId = $derived(lastTurn?.id ?? null);
 
-  // Visible if there's a turn and we haven't dismissed this specific turn
-  const visible = $derived(lastTurnId !== null && lastTurnId !== dismissedTurnId);
+  // Captured once at mount: the last turn id persisted from a prior session.
+  // The idle pill only surfaces turns produced in THIS session (plus any active
+  // status), so reloading the app never resurrects a stale agent-name nub.
+  const initialLastTurnId = conv.lastTurn?.id ?? null;
+  const visible = $derived(
+    lastTurnId !== null && lastTurnId !== initialLastTurnId && lastTurnId !== dismissedTurnId,
+  );
 
   const isAssistant = $derived(lastTurn?.role === "assistant");
   const text = $derived(lastTurn ? conv.getText(lastTurn) : "");
@@ -43,7 +48,6 @@
   // expanded = full response bubble
   let collapsed = $state(true);
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
-  let _suppressCollapse = false;
 
   // Auto-expand when there's ongoing activity (streaming, pending tools).
   // Skip in live mode — the pill handles status display there.
@@ -72,7 +76,6 @@
 
   // Collapse when user clicks outside the bubble container
   function onDocumentClick(e: MouseEvent) {
-    if (_suppressCollapse) return;
     if (!containerEl) return;
     if (containerEl.contains(e.target as Node)) return;
     collapsed = true;
@@ -84,13 +87,15 @@
     return () => document.removeEventListener("click", onDocumentClick);
   });
 
-  function expand() {
+  function expand(e: MouseEvent) {
+    e.stopPropagation();
     collapsed = false;
-    _suppressCollapse = true;
-    queueMicrotask(() => { _suppressCollapse = false; });
   }
 
-  function collapse() { collapsed = true; }
+  function collapse(e?: MouseEvent) {
+    e?.stopPropagation();
+    collapsed = true;
+  }
 
   onDestroy(() => clearTimeout(collapseTimer));
 
@@ -295,9 +300,6 @@
     padding: 0.375rem 0.75rem;
     border-radius: var(--radius-full);
     border: 1px solid var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--color-foreground);
@@ -305,6 +307,7 @@
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    box-shadow: var(--shadow-float), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
   .status-pill:hover {
     transform: scale(1.03);

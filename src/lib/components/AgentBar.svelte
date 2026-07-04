@@ -386,7 +386,7 @@
         bottom: 1.5rem;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 65;
+        z-index: 1001;
         pointer-events: auto;
     }
 
