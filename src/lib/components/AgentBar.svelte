@@ -48,6 +48,18 @@
     const LONG_PRESS_MS = 500;
     const RING_RADIUS = 34;
     const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+    let hintVisible = $state(false);
+    let hintTimer: ReturnType<typeof setTimeout> | undefined = $state();
+    $effect(() => {
+        const shouldPrepare = displayOrbState === "idle" && !ui.agentInputOpen && conv.lastTurn === null;
+        if (shouldPrepare) {
+            hintTimer = setTimeout(() => { hintVisible = true; }, 4000);
+        } else {
+            clearTimeout(hintTimer);
+            hintVisible = false;
+        }
+        return () => clearTimeout(hintTimer);
+    });
 
     $effect(() => () => {
         if (progressRAF) cancelAnimationFrame(progressRAF);
@@ -233,12 +245,12 @@
                     triggerClass="glass-btn text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
                 />
             </div>
-        </div>
+            </div>
     {:else}
         <!-- Regular / Minimal / Expanded Mode -->
         <div class="flex items-center gap-3">
             <div class="orb-wrapper">
-                {#if displayOrbState === "idle" && !ui.agentInputOpen && conv.lastTurn === null}
+                {#if hintVisible}
                   <div class="orb-hint">
                     <div class="hint-text">click on the orb to give input<br>and click and hold for awesomeness</div>
                     <SpiralArrow class="hint-arrow" aria-hidden="true" />
