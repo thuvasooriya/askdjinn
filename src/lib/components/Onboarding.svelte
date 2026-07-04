@@ -343,7 +343,6 @@
         <div class="step-header">
           <p class="step-number">Step 2 of {totalSteps - 1}</p>
           <h2 class="step-title">Tell us about yourself</h2>
-          <p class="step-subtitle">These details help your djinn serve you better. All saved to your profile.</p>
         </div>
         <div class="about-scroll">
           <!-- Name -->
@@ -526,16 +525,13 @@
 
       {#if step === 1}
         <!-- Step 1: skip (dull) + next -->
-        <Button variant="ghost" size="lg" class="skip-btn flex-1" onclick={skip}>
-          <SkipForward class="h-4 w-4" /> Skip
+        <Button variant="ghost" size="md" class="skip-btn flex-1" onclick={skip}>
         </Button>
-        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
-          Next <ArrowRight class="h-4 w-4" />
+        <Button variant="primary" size="md" class="flex-1" onclick={next}>
         </Button>
       {:else if step === 2}
         <!-- Step 2: let's go -->
-        <Button variant="primary" size="lg" class="flex-1" onclick={next}>
-          Let's go <Sparkles class="h-4 w-4" />
+        <Button variant="primary" size="md" class="flex-1" onclick={next}>
         </Button>
       {:else}
         <!-- Final step (mic): finish -->
@@ -889,8 +885,7 @@
   }
 
   .about-input {
-    width: 100%;
-    padding: 0.65rem 0.875rem;
+    padding: 0.45rem 0.75rem;
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-xl);
     background: color-mix(in srgb, var(--color-surface) 84%, transparent);
@@ -909,7 +904,7 @@
 
   .about-textarea {
     width: 100%;
-    padding: 0.65rem 0.875rem;
+    padding: 0.45rem 0.75rem;
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-xl);
     background: color-mix(in srgb, var(--color-surface) 84%, transparent);

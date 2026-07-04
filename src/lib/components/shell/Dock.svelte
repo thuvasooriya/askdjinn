@@ -308,6 +308,18 @@
                     class="dropdown-item"
                     role="menuitem"
                     onclick={() => {
+                        ui.open("conversation" as import("$lib/panel-contracts").PanelType, { kind: "static" });
+                        collapse();
+                    }}
+                >
+                    <MessageSquare class="h-4 w-4" />
+                    <span class="flex-1">Chat</span>
+                </button>
+                <button
+                    type="button"
+                    class="dropdown-item"
+                    role="menuitem"
+                    onclick={() => {
                         onRerunOnboarding();
                         collapse();
                     }}

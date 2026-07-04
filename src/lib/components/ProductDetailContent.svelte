@@ -41,6 +41,18 @@
     product?.variants?.find(v => v.id === selectedVariantId) ?? null
   );
 
+  // Real choices only — hide the Options section when there are no variants or
+  // the only one is a placeholder ("default"/unnamed), since there's nothing to pick.
+  const hasVariants = $derived.by(() => {
+    const vs = product?.variants;
+    if (!vs || vs.length === 0) return false;
+    if (vs.length === 1) {
+      const name = (vs[0].name ?? "").trim().toLowerCase();
+      if (name === "" || name === "default" || name === "standard" || name === "base") return false;
+    }
+    return true;
+  });
+
   const displayPrice = $derived(selectedVariant?.price ?? product?.price);
   const displayInStock = $derived(
     selectedVariant ? selectedVariant.inStock : product?.inStock
@@ -386,7 +398,7 @@
           </details>
         {/if}
 
-        {#if product.variants && product.variants.length > 0}
+        {#if hasVariants}
           <details class="section" open>
             <summary class="section-summary">
               <span class="section-title">Options</span>

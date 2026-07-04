@@ -52,7 +52,7 @@ export function buildClientToolContext(): ClientToolContext {
     onRemoveFromCart: (id) => cart.removeItem(id),
     onUpdateCartQuantity: (id, qty) => cart.updateQuantity(id, qty),
     onGetCartContents: () => cart.items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-    onOrderCreated: (order) => { ui.setOrderResult(order); if (order.orderNumber) session.addOrder(order.orderNumber); },
+    onOrderCreated: (order) => { ui.setOrderResult(order); if (order.orderNumber) session.addOrder(order.orderNumber); cart.clear(); },
     onAskUser: (question, options) => new Promise<string>((resolve) => ui.setAskUser(question, options, resolve)),
     onSetDeliveryEstimate: (estimate) => cart.setDeliveryEstimate(estimate),
     onGetOrderRecord: (orderNumber) => session.getOrderRecord(orderNumber),

@@ -59,6 +59,7 @@ class LiveVoiceStore {
   private playbackWorklet: AudioWorkletNode | null = null;
   private toolCtx: ClientToolContext | null = null;
   private connectResolve: ((ok: boolean) => void) | null = null;
+  private connectInFlight: Promise<boolean> | null = null;
   private conv = useConversation();
   private profile = useProfile();
   private currentInputTurnId: string | null = null;
@@ -82,6 +83,20 @@ class LiveVoiceStore {
   }
 
   async connect(ctx: ClientToolContext): Promise<boolean> {
+    // Re-entrancy guard: orb hold/release/hold sequences (or any double-fire)
+    // can call connect() while a previous attempt is still minting a token.
+    // Dedupe — concurrent callers await the same in-flight attempt instead of
+    // each firing another /api/live/token request.
+    if (this.connectInFlight) return this.connectInFlight;
+    this.connectInFlight = this.doConnect(ctx);
+    try {
+      return await this.connectInFlight;
+    } finally {
+      this.connectInFlight = null;
+    }
+  }
+
+  private async doConnect(ctx: ClientToolContext): Promise<boolean> {
     if (this.state === "connecting" || this.state === "connected") {
       await this.disconnect();
     }

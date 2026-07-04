@@ -49,13 +49,13 @@
   let collapsed = $state(true);
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Auto-expand when there's ongoing activity (streaming, pending tools).
-  // Skip in live mode — the pill handles status display there.
+  // Auto-expand only once there's actual content to show (text or tool bursts),
+  // not the instant a turn starts streaming — mirrors live mode, where the pill
+  // stays put until there's something to render. Avoids the empty bubble
+  // flashing open the moment the user hits Enter.
   $effect(() => {
-    const _stream = lastTurn?.streaming;
-    const _pending = hasPendingToolCall;
     if (liveActive) return;
-    if (_stream || _pending) {
+    if (lastTurn?.streaming && renderItems.length > 0) {
       collapsed = false;
     }
   });
@@ -172,7 +172,7 @@
     if (liveActive) {
       if (liveState === "connecting" || liveState === "connected") return "Connecting";
       if (liveState === "listening") return "Listening";
-      if (liveState === "speaking") return `${profile.agent.name} speaking`;
+      if (liveState === "speaking") return "Speaking";
       return "Live";
     }
     if (chat.isStreaming) return "Thinking";
@@ -287,7 +287,7 @@
     bottom: 6.5rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 54;
+    z-index: 1001;
     width: min(440px, calc(100vw - 2rem));
     display: flex;
     flex-direction: column;
@@ -298,7 +298,7 @@
 
   .status-pill {
     padding: 0.375rem 0.75rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-subtle);
     font-size: var(--fs-sm);
     font-weight: 600;
@@ -307,7 +307,7 @@
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    box-shadow: var(--shadow-float), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    box-shadow: var(--shadow-card);
   }
   .status-pill:hover {
     transform: scale(1.03);

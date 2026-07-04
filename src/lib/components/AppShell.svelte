@@ -166,7 +166,7 @@
       onNewConversation={newConversation}
       onRerunOnboarding={rerunOnboarding}
       onClearCache={clearCache}
-      onCartClick={(el) => { cartButtonEl = el; bumpCart(); }}
+      onCartClick={(el) => { cartButtonEl = el; bumpCart(); ui.togglePanel("cart"); }}
       {isHome}
     />
 
