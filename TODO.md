@@ -2,6 +2,17 @@ rewrite order-banner
 render the pay buttons expiry and stuff in the orders pane
 render the click to pay link inline
 
+The application actually does have strict validations, but currently only for
+form-collecting panels (like checkout and address-form). In your "Phase 5 Layout"
+refactor, panel-contracts.ts was introduced. It acts as a strict schema/contract that both
+the Agent and the UI must satisfy before a form is considered valid.
+
+However, display panels (like order-tracking and product-detail) weren't strictly
+validated by these contracts yet—they blindly trusted the caller (the agent or the UI) to
+pass the correct payload. To bulletproof the app going forward, the next architectural
+step would be to add requiredPayload schemas to panel-contracts.ts so ui.open()
+immediately rejects or auto-fetches missing data instead of rendering an empty shell.
+
 ### refine homescreen
 
 - [ ] add order tracking card (homescreen specific tool)

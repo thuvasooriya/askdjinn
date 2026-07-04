@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useConversation } from "$lib/stores/conversation.svelte";
+  import { useConversation, type TurnPart } from "$lib/stores/conversation.svelte";
   import { useUI } from "$lib/stores/ui.svelte";
   import { useAgentStatus } from "$lib/stores/agent-status.svelte";
   import { useLiveVoice } from "$lib/stores/live-voice.svelte";
@@ -9,8 +9,7 @@
   import { Maximize2, AlertCircle, Wrench, Sparkles } from "@lucide/svelte";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
   import { browser } from "$app/environment";
-
-  import { fly } from "svelte/transition";
+  import { fly, fade } from "svelte/transition";
 
   const conv = useConversation();
   const ui = useUI();
@@ -24,7 +23,7 @@
   let bodyEl = $state<HTMLElement>();
   const lastTurn = $derived(conv.lastTurn);
   const lastTurnId = $derived(lastTurn?.id ?? null);
-  
+
   // Visible if there's a turn and we haven't dismissed this specific turn
   const visible = $derived(lastTurnId !== null && lastTurnId !== dismissedTurnId);
 
@@ -37,6 +36,73 @@
   const liveState = $derived(liveVoice.state);
   const liveActive = $derived(liveState !== "idle" && liveState !== "error");
 
+  // ── Tool-call grouping ─────────────────────────────────────────────────────
+  // Group consecutive tool-call parts into bursts. Each burst renders as a
+  // single pill showing a spinner (while pending) or completed count.
+  type ToolBurst = {
+    /** First tool-call id — stable key for the group */
+    id: string;
+    /** Number of tool-call parts that are done/error */
+    completed: number;
+    /** True if any tool in this burst is still pending */
+    running: boolean;
+    /** Label of the currently executing tool (first pending one) */
+    activeLabel: string | null;
+  };
+
+  type RenderItem =
+    | { type: "text"; text: string }
+    | { type: "tool-burst"; burst: ToolBurst };
+
+  const renderItems = $derived.by((): RenderItem[] => {
+    if (!lastTurn) return [];
+    const items: RenderItem[] = [];
+    let currentBurst: TurnPart[] = [];
+
+    const flushBurst = () => {
+      if (currentBurst.length === 0) return;
+      const running = currentBurst.some(p => p.status === "pending");
+      const completed = currentBurst.filter(p => p.status === "done" || p.status === "error").length;
+      const firstPending = currentBurst.find(p => p.status === "pending");
+      items.push({
+        type: "tool-burst",
+        burst: {
+          id: currentBurst[0].id,
+          completed,
+          running,
+          activeLabel: firstPending ? (firstPending.label ?? firstPending.name) : null,
+        },
+      });
+      currentBurst = [];
+    };
+
+    for (const part of lastTurn.parts) {
+      if (part.type === "tool-call") {
+        currentBurst.push(part);
+      } else if (part.type === "product-results" || part.type === "image" || part.type === "delivery-info") {
+        // Tool output parts belong to the burst — don't break consecutiveness
+        // but don't add to burst either (not tool-calls)
+      } else if (part.type === "text") {
+        flushBurst();
+        if (part.text) {
+          items.push({ type: "text", text: part.text });
+        }
+      }
+    }
+    flushBurst();
+    return items;
+  });
+
+  // Label of the first running burst for header status
+  const activeBurstLabel = $derived.by((): string | null => {
+    for (const item of renderItems) {
+      if (item.type === "tool-burst" && item.burst.running && item.burst.activeLabel) {
+        return item.burst.activeLabel;
+      }
+    }
+    return null;
+  });
+
   const statusText = $derived.by(() => {
     if (liveActive) {
       if (liveState === "connecting" || liveState === "connected") return "Connecting";
@@ -47,7 +113,7 @@
     if (chat.isStreaming) return "Thinking";
     if (agentStatus.isActive) return agentStatus.status.label;
     if (hasPendingToolCall) return "Searching Kapruka";
-    if (conv.isStreaming) return "Writing";
+    if (activeBurstLabel) return activeBurstLabel;
     return null;
   });
 
@@ -60,9 +126,8 @@
 
   // Autoscroll logic for streaming response content
   $effect(() => {
-    // Establish dependencies on text content, parts list, and streaming flag
     const _text = text;
-    const _parts = lastTurn?.parts.length;
+    const _items = renderItems.length;
     const _stream = lastTurn?.streaming;
 
     if (bodyEl) {
@@ -120,24 +185,28 @@
         <!-- Scrollable text content -->
         <div bind:this={bodyEl} class="bubble-body overflow-y-auto pr-1">
           {#if lastTurn}
-            {#each lastTurn.parts as part, i (`${lastTurn.id}-${i}`)}
-              {#if part.type === "text" && part.text}
+            {#each renderItems as item, i (`${lastTurn.id}-${i}`)}
+              {#if item.type === "text"}
                 <div class="prose prose-sm dark:prose-invert bubble-text">
-                  {@html renderMarkdown(part.text)}
+                  {@html renderMarkdown(item.text)}
                 </div>
-              {:else if part.type === "tool-call"}
-                <span class="bubble-tool-marker bubble-tool-marker--{part.status}" title={part.summary ?? part.label ?? part.name} aria-label={part.summary ?? part.label ?? part.name}>
-                  {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.label ?? part.name} />{:else if part.status === "error"}<AlertCircle class="h-3 w-3" />{:else}<Wrench class="h-3 w-3" />{/if}
+              {:else if item.type === "tool-burst"}
+                <span
+                  class="tool-burst-pill"
+                  class:tool-burst-pill--running={item.burst.running}
+                  aria-label={item.burst.running ? item.burst.activeLabel ?? `Running ${item.burst.completed + 1}` : `${item.burst.completed} tools`}
+                >
+                  <Wrench class="h-3 w-3" />
+                  {#if item.burst.running}
+                    <BrailleSpinner name="orbit" size="sm" label={item.burst.activeLabel ?? "Running"} />
+                  {:else}
+                    <span class="tool-burst-count" transition:fade={{ duration: reducedMotion ? 0 : 200 }}>
+                      {item.burst.completed}
+                    </span>
+                  {/if}
                 </span>
-              {:else if part.type === "image"}
-                <div class="message-image-container">
-                  <img src="data:{part.mimeType};base64,{part.base64}" alt="Sent media" class="message-image" />
-                </div>
               {/if}
             {/each}
-            {#if !text && lastTurn.streaming}
-              <div class="typing-spinner"><BrailleSpinner name="breathe" label="Writing response" /></div>
-            {/if}
           {/if}
         </div>
       </div>
@@ -249,24 +318,32 @@
   .bubble-text :global(p:last-child) {
     margin-bottom: 0;
   }
-  .bubble-text + .bubble-tool-marker,
-  .bubble-tool-marker + .bubble-text {
+  .tool-burst-pill + .bubble-text,
+  .bubble-text + .tool-burst-pill {
     margin-top: 0.25rem;
   }
-  .bubble-tool-marker {
+  .tool-burst-pill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    margin-block: 0.125rem;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
     border-radius: var(--radius-full);
     border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
     background: color-mix(in srgb, var(--color-muted) 60%, transparent);
     color: var(--color-muted-foreground);
+    font-size: var(--fs-xs);
+    font-weight: 600;
     vertical-align: middle;
+    margin-block: 0.125rem;
+    transition: border-color 0.2s, color 0.2s;
   }
-  .bubble-tool-marker--done { color: var(--color-success); }
-  .bubble-tool-marker--error { border-color: var(--color-destructive); color: var(--color-destructive); }
-  .typing-spinner { display: inline-flex; align-items: center; padding: 0.25rem 0; }
+  .tool-burst-pill--running {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  .tool-burst-count {
+    min-width: 0.75rem;
+    text-align: center;
+    line-height: 1;
+  }
 </style>
