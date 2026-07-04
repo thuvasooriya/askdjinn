@@ -5,7 +5,7 @@
   import { AGENT_LIST } from "$lib/agents";
   import { THEME_LIST } from "$lib/themes";
   import { Check, type ComponentType, languageIcons } from "$lib/icons";
-  import { Sun, Moon, Sparkles, ArrowRight, ArrowLeft, SkipForward, Globe, Wand2, Eye, Brain } from "@lucide/svelte";
+  import { Sun, Moon, Sparkles, ArrowRight, ArrowLeft, SkipForward, Info, Globe, Wand2, Eye, Brain } from "@lucide/svelte";
   import AgentOrb from "./AgentOrb.svelte";
   import MadeWith from "$lib/components/shell/MadeWith.svelte";
   import SlideToSummon from "$lib/components/shell/SlideToSummon.svelte";
@@ -30,6 +30,8 @@
   let selectedNotes = $state<string>("");
   let selectedName = $state<string>("");
   let selectedCallingCard = $state<string>("");
+  // Which section's info hint is currently revealed (click-to-toggle). Null = none.
+  let openHint = $state<string | null>(null);
 
   // Calling-card suggestions adapt to the language picked in step 1. The field
   // stays free-text -- these are native <datalist> hints only; the user can type
@@ -189,6 +191,27 @@
   if (cityDropdownOpen && cityDropdownEl && !cityDropdownEl.contains(e.target as Node)) cityDropdownOpen = false;
 }} />
 
+{#snippet fieldLabel(id: string, text: string, hint?: string)}
+  <span class="about-label-row">
+    <span class="about-label">{text}</span>
+    {#if hint}
+      <button
+        type="button"
+        class="info-tip"
+        aria-label={hint}
+        title={hint}
+        aria-expanded={openHint === id}
+        onclick={() => (openHint = openHint === id ? null : id)}
+      >
+        <Info style="width: 0.85rem; height: 0.85rem;" />
+      </button>
+    {/if}
+  </span>
+  {#if hint && openHint === id}
+    <p class="about-hint">{hint}</p>
+  {/if}
+{/snippet}
+
 <div class="onboarding-overlay" transition:fade={{ duration: 300 }}>
   <div class="gradient-glow pointer-events-none fixed inset-0"></div>
 
@@ -325,8 +348,7 @@
         <div class="about-scroll">
           <!-- Name -->
           <div class="about-section">
-            <span class="about-label">Your name</span>
-            <p class="about-hint">So your djinn can greet you personally. Optional.</p>
+            {@render fieldLabel("name", "Your name", "So your djinn can greet you personally. Optional.")}
             <input
               type="text"
               bind:value={selectedName}
@@ -336,10 +358,25 @@
             />
           </div>
 
+          <!-- Gender / Salutation -->
+          <div class="about-section">
+            {@render fieldLabel("gender", "Gender / Salutation")}
+            <div class="chip-row">
+              {#each ["Not specified", "Female", "Male", "Other"] as g}
+                <button
+                  type="button"
+                  onclick={() => selectedGender = g}
+                  class="chip {selectedGender === g ? 'chip--active' : ''}"
+                >
+                  {g}
+                </button>
+              {/each}
+            </div>
+          </div>
+
           <!-- Calling card -->
           <div class="about-section">
-            <span class="about-label">How should I address you?</span>
-            <p class="about-hint">Pick a suggestion or type your own. Leave blank to go by your name.</p>
+            {@render fieldLabel("card", "How should I address you?", "Pick a suggestion or type your own. Leave blank to go by your name.")}
             <input
               type="text"
               bind:value={selectedCallingCard}
@@ -353,10 +390,10 @@
               {/each}
             </datalist>
           </div>
+
           <!-- Delivery city -->
           <div class="about-section" bind:this={cityDropdownEl}>
-            <span class="about-label">Your delivery city</span>
-            <p class="about-hint">We'll filter products to what's deliverable to you. Type to search cities.</p>
+            {@render fieldLabel("city", "Your delivery city", "We'll filter products to what's deliverable to you. Type to search cities.")}
             <div class="relative">
               <input
                 type="text"
@@ -395,27 +432,9 @@
             </div>
           </div>
 
-          <div class="about-divider"></div>
-
-          <!-- Gender -->
-          <div class="about-section">
-            <span class="about-label">Gender / Salutation</span>
-            <div class="chip-row">
-              {#each ["Not specified", "Female", "Male", "Other"] as g}
-                <button
-                  type="button"
-                  onclick={() => selectedGender = g}
-                  class="chip {selectedGender === g ? 'chip--active' : ''}"
-                >
-                  {g}
-                </button>
-              {/each}
-            </div>
-          </div>
-
           <!-- Dietary / Allergies -->
           <div class="about-section">
-            <span class="about-label">Dietary / Allergies</span>
+            {@render fieldLabel("dietary", "Dietary / Allergies")}
             <input
               type="text"
               bind:value={selectedAllergies}
@@ -426,7 +445,7 @@
 
           <!-- Additional notes -->
           <div class="about-section">
-            <span class="about-label">Anything else we should know?</span>
+            {@render fieldLabel("notes", "Anything else we should know?")}
             <textarea
               bind:value={selectedNotes}
               placeholder="e.g. Shopping for kids, preference for local brands..."
@@ -724,7 +743,7 @@
   }
   .section-label {
     font-family: var(--font-display);
-    font-size: 0.9rem;
+    font-size: var(--fs-lg);
     font-weight: 700;
     letter-spacing: 0.01em;
     text-align: center;
@@ -835,10 +854,31 @@
 
   .about-label {
     font-family: var(--font-display);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-lg);
     font-weight: 700;
     letter-spacing: 0.01em;
     color: var(--color-muted-foreground);
+  }
+  .about-label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .info-tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: help;
+    color: var(--color-muted-foreground);
+    border-radius: var(--radius-full);
+    transition: color 0.15s;
+  }
+  .info-tip:hover,
+  .info-tip:focus-visible {
+    color: var(--color-foreground);
   }
 
   .about-hint {
@@ -887,11 +927,6 @@
     color: color-mix(in srgb, var(--color-muted-foreground) 50%, transparent);
   }
 
-  .about-divider {
-    height: 1px;
-    background: var(--color-border);
-    margin: 0.25rem 0;
-  }
 
   /* ── Chips ── */
   .chip-row {

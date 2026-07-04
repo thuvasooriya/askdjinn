@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ArrowRight } from "@lucide/svelte";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
+  import { ensureHapticSwitch, hapticTap } from "$lib/actions/haptic";
+  import { onMount } from "svelte";
 
   let {
     loading = false,
@@ -16,6 +18,8 @@
   let isDragging = $state(false);
   let progress = $state(0); // 0 to 1
   let startX = 0;
+  
+  onMount(ensureHapticSwitch);
   
   function onPointerDown(e: PointerEvent) {
     if (loading) return;
@@ -48,6 +52,7 @@
     
     if (progress > 0.95) {
       progress = 1;
+      hapticTap();
       oncomplete?.();
     } else {
       progress = 0;
@@ -59,6 +64,7 @@
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       progress = 1;
+      hapticTap();
       oncomplete?.();
     }
   }
