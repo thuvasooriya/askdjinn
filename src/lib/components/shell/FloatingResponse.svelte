@@ -64,7 +64,7 @@
 
     collapseTimer = setTimeout(() => {
       collapsed = true;
-    }, 6000);
+    }, 30000);
   });
 
   // Collapse when user clicks outside the bubble container

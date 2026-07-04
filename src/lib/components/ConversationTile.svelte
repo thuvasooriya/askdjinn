@@ -58,7 +58,8 @@
         if (part.type === "text" && part.text) lines.push(`  ${part.text}`);
         else if (part.type === "tool-call") {
           const base = `  [tool:${part.name} ${part.status}]`;
-          lines.push(part.summary ? `${base} ${part.summary}` : base);
+          const line = part.summary ? `${base} ${part.summary}` : base;
+          lines.push(part.detail ? `${line}\n    ${part.detail}` : line);
         }
       }
     }
@@ -124,6 +125,7 @@
                 <div class="chip chip--{part.status}">
                   {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.label ?? part.name} />{/if}
                   <span class="chip-label">{part.label ?? part.name}</span>
+                  {#if part.detail}<span class="chip-detail">{part.detail}</span>{/if}
                   {#if part.summary}<span class="chip-summary">{part.summary}</span>{/if}
                 </div>
               {:else if part.type === "image"}
@@ -268,7 +270,7 @@
   }
   /* Tool chips */
   .chip {
-    display: inline-flex; align-items: center; gap: 0.375rem;
+    display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
     padding: 0.1875rem 0.5rem; border-radius: var(--radius-sm);
     font-size: var(--fs-xs); border: 1px solid var(--color-border);
     background: color-mix(in srgb, var(--color-muted) 60%, transparent);
@@ -279,6 +281,13 @@
   .chip--error { border-color: var(--color-destructive); color: var(--color-destructive); }
   .chip-label { font-weight: 600; }
   .chip-summary { color: var(--color-muted-foreground); }
+  .chip-detail {
+    width: 100%;
+    color: var(--color-muted-foreground);
+    opacity: 0.75;
+    font-size: 0.5625rem;
+    padding-left: 0.125rem;
+  }
 
   /* Markdown Tables */
   .bubble-text :global(table) {

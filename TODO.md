@@ -2,6 +2,8 @@ rewrite order-banner
 render the pay buttons expiry and stuff in the orders pane
 render the click to pay link inline
 
+make the traffic lights smaller and move the expanded hover zone to a bit lower in all the panels
+
 create order consistency
 
 The application actually does have strict validations, but currently only for
