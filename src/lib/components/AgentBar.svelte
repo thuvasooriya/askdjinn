@@ -13,6 +13,7 @@
     import { useUI } from "$lib/stores/ui.svelte";
     import { useMediaAttach } from "$lib/attach-media.svelte";
     import WebcamCaptureModal from "./shell/WebcamCaptureModal.svelte";
+    import SpiralArrow from "./SpiralArrow.svelte";
 
     const reducedMotion = $derived(
         browser &&
@@ -189,18 +190,6 @@
 
 <div class="agent-bar-container">
 
-    <!-- ── Orb hint (idle state with no conversation) ────────────────────── -->
-    {#if displayOrbState === "idle" && !ui.agentInputOpen && conv.lastTurn === null}
-      <div class="orb-hint">
-        <div class="hint-text">click on the orb to give input<br>and click and hold for awesomeness</div>
-        <svg class="hint-arrow" viewBox="0 0 60 80" fill="none" aria-hidden="true">
-          <path d="M30 2 C22 6 10 10 10 20 C10 34 50 34 50 20 C50 8 34 4 30 18 C26 32 30 40 36 48 C42 56 44 66 38 74 L30 80"
-            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M30 80 L24 72 M30 80 L36 72"
-            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
-      </div>
-    {/if}
     <!-- ──────────────────────────────────────────────────────────────────── -->
 
     {#if liveActive}
@@ -248,6 +237,13 @@
     {:else}
         <!-- Regular / Minimal / Expanded Mode -->
         <div class="flex items-center gap-3">
+            <div class="orb-wrapper">
+                {#if displayOrbState === "idle" && !ui.agentInputOpen && conv.lastTurn === null}
+                  <div class="orb-hint">
+                    <div class="hint-text">click on the orb to give input<br>and click and hold for awesomeness</div>
+                    <SpiralArrow class="hint-arrow" aria-hidden="true" />
+                  </div>
+                {/if}
             <!-- Orb -->
             <div
                 class="glass-btn glass-btn--lg"
@@ -286,6 +282,7 @@
                     size={56}
                     audioLevel={liveVoice.audioLevel}
                 />
+            </div>
             </div>
 
             {#if inputOpen}
@@ -468,40 +465,39 @@
         color: white;
         border: none;
         font-size: 0.8rem;
-        line-height: 1;
-        cursor: pointer;
     }
-
     /* ── Orb hint ──────────────────────────────────────────────────────── */
+    .orb-wrapper {
+        position: relative;
+    }
     .orb-hint {
         position: absolute;
-        bottom: calc(100% + 12px);
-        left: 50%;
-        transform: translateX(-50%);
+        bottom: 20%;
+        right: 10%;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-end;
         pointer-events: none;
         animation: hint-fade-in 0.6s ease-out;
     }
-
     @keyframes hint-fade-in {
-        from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-
     .hint-text {
-        text-align: center;
-        font-size: var(--fs-xs);
+        text-align: left;
+        font-family: "Caveat Variable", cursive;
+        font-size: clamp(1rem, 2.5vw, 1.125rem);
         color: var(--color-muted-foreground);
-        line-height: 1.4;
+        line-height: 1;
+        max-width: min(240px, 70vw);
+        margin-bottom: -100%;
+        margin-left: -170%;
     }
-
-    .hint-arrow {
-        width: 28px;
-        height: 64px;
-        margin-top: -6px;
+    :global(.hint-arrow) {
+        width: clamp(60px, 7vw, 72px);
+        height: clamp(130px, 18vw, 192px);
+        color: var(--color-muted-foreground);
         opacity: 0.7;
     }
-    /* ──────────────────────────────────────────────────────────────────── */
 </style>

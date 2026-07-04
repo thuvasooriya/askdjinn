@@ -2,6 +2,8 @@ rewrite order-banner
 render the pay buttons expiry and stuff in the orders pane
 render the click to pay link inline
 
+create order consistency
+
 The application actually does have strict validations, but currently only for
 form-collecting panels (like checkout and address-form). In your "Phase 5 Layout"
 refactor, panel-contracts.ts was introduced. It acts as a strict schema/contract that both

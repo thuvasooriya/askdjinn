@@ -3,6 +3,7 @@
    Playfair is the closest open variable font with similar high-contrast serif
    character. Replace with Sagittaire Display files in static/fonts/ if owned.) */
 @import "@fontsource-variable/playfair-display";
+@import "@fontsource-variable/caveat";
 
 @import "tailwindcss";
 
