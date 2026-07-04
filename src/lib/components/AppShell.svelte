@@ -19,7 +19,6 @@
   import Region from "$lib/components/shell/Region.svelte";
   import Dock from "$lib/components/shell/Dock.svelte";
   import AgentBar from "./AgentBar.svelte";
-  import CheckoutPanel from "./CheckoutPanel.svelte";
   import Onboarding from "./Onboarding.svelte";
   import AskUserModal from "./AskUserModal.svelte";
   import ImageGalleryModal from "./ImageGalleryModal.svelte";
@@ -33,7 +32,6 @@
   const ui = useUI();
   const liveVoice = useLiveVoice();
 
-  let checkoutOpen = $state(false);
   let liveActive = $state(false);
   let cartBumping = $state(false);
   let cartButtonEl: HTMLElement | undefined = $state();
@@ -200,7 +198,7 @@
           onClose={(id) => ui.close(id)}
           onAddProduct={addProduct}
           onClickProduct={handleProductClick}
-          onCheckout={() => { checkoutOpen = true; }}
+          onCheckout={() => { ui.open("checkout" as any, { kind: "dynamic" }); }}
           {liveActive}
         />
       {/if}
@@ -215,8 +213,6 @@
     {#if ui.askUser}
       <AskUserModal question={ui.askUser.question} options={ui.askUser.options} onSelect={(answer: string) => ui.resolveAskUser(answer)} onDismiss={() => ui.dismissAskUser()} />
     {/if}
-
-    <CheckoutPanel bind:open={checkoutOpen} items={cart.items} subtotal={cart.subtotal} onCreated={(order) => { if (order?.orderNumber) session.addOrder(order.orderNumber); cart.clear(); checkoutOpen = false; }} onClose={() => (checkoutOpen = false)} />
 
     {#if ui.galleryState?.open}
       <ImageGalleryModal

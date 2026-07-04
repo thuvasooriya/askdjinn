@@ -12,15 +12,14 @@
  * - product-detail: single product modal
  * - settings: profile/preferences
  *
- * Viewport layout:
- * - On large screens: conversation left, active panel right (split view)
+ * - On desktop: conversation left, products center, detail right
  * - On small screens: conversation full, panels slide in as overlays
  */
 
 import type { Product } from "$lib/shopping-engine";
 import * as persist from "$lib/stores/persistence";
 import {
-  createPanel, canOpen, applyFill, validatePanel,
+  createPanel, canOpen, applyFill, validatePanel, PANEL_TITLES,
   type Panel, type PanelKind, type PanelStatus, type OpenConfig,
   type FillResult, type ValidateResult,
 } from "$lib/stores/panel-registry";
@@ -45,14 +44,6 @@ export type ViewportLayout = "split" | "stacked";
 /** Legacy alias: dynamic panels are now regular Panels in the registry. */
 export type DynamicPanel = Panel;
 
-const PANEL_TITLES: Record<string, string> = {
-  "address-select": "Select Address",
-  "address-form": "Address Details",
-  "checkout": "Create Order",
-  "wishlist": "Wishlist & Alerts",
-  "delivery-info": "Delivery Check",
-  "order-tracking": "Track Order",
-};
 
 export interface SearchCriteria {
   q: string;

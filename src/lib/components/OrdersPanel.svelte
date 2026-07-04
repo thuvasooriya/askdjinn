@@ -15,35 +15,18 @@
     import { toasts } from "$lib/ui/toast";
     import PanelHeader from "$lib/ui/PanelHeader.svelte";
     import Button, { buttonVariants } from "$lib/ui/Button.svelte";
-
-    type ViewState = { type: "list" } | { type: "detail"; orderNumber: string };
+    import { useUI } from "$lib/stores/ui.svelte";
 
     const ORDER_STATUS_TTL_MS = 5 * 60 * 1000;
 
-    let view = $state<ViewState>({ type: "list" });
     let refreshingIds = $state<Set<string>>(new Set());
     let autoRefreshAttempted = $state<Set<string>>(new Set());
     let refreshErrors = $state<Record<string, string>>({});
 
+    const ui = useUI();
     const session = useSession();
     const orders = $derived(session.orderRecords);
 
-    const detailOrderNumber = $derived(
-        view.type === "detail" ? view.orderNumber : null,
-    );
-    const selectedOrder = $derived(
-        detailOrderNumber
-            ? (orders.find((o) => o.orderNumber === detailOrderNumber) ?? null)
-            : null,
-    );
-
-    function selectOrder(orderNumber: string) {
-        view = { type: "detail", orderNumber };
-    }
-
-    function backToList() {
-        view = { type: "list" };
-    }
 
     function isTerminalStatus(status: string | undefined): boolean {
         return ["delivered", "completed", "cancelled", "canceled", "expired", "failed"].includes(
@@ -165,10 +148,6 @@
         );
     }
 
-    async function handleRefresh() {
-        if (!selectedOrder) return;
-        await refreshOrder(selectedOrder, { force: true, toast: true });
-    }
 
     $effect(() => {
         void refreshStaleOrders();
@@ -258,7 +237,6 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-    {#if view.type === "list"}
         <!-- List View -->
         <PanelHeader title="Orders" />
 
@@ -354,7 +332,7 @@
                                     <Button
                                         type="button"
                                         onclick={() =>
-                                            selectOrder(order.orderNumber)}
+                                            ui.open("order-tracking" as any, { kind: "dynamic", data: { ...order, progress: order.tracking } })}
                                         variant="outline"
                                         size="sm"
                                         class="h-auto gap-1 px-2.5 py-1 text-[10px]"
@@ -389,285 +367,4 @@
                 </div>
             </div>
         {/if}
-    {:else}
-        <!-- Detail View -->
-        {#if selectedOrder}
-            <div
-                class="flex h-[var(--panel-header-h)] shrink-0 items-center gap-2 border-b border-[var(--color-border)] px-4 py-0"
-            >
-                <Button
-                    type="button"
-                    onclick={backToList}
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Back to orders"
-                >
-                    <ArrowLeft class="h-4 w-4" />
-                </Button>
-                <h3
-                    class="font-display flex-1 truncate text-base font-bold leading-none text-[var(--color-foreground)]"
-                >
-                    {selectedOrder.orderNumber}
-                </h3>
-                <Button
-                    type="button"
-                    onclick={handleRefresh}
-                    disabled={selectedOrder
-                        ? refreshingIds.has(selectedOrder.orderNumber)
-                        : false}
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Refresh order"
-                >
-                    {#if selectedOrder && refreshingIds.has(selectedOrder.orderNumber)}
-                        <BrailleSpinner size="sm" />
-                    {:else}
-                        <RefreshCw class="h-4 w-4" />
-                    {/if}
-                </Button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-3">
-                <div class="space-y-3">
-                    {#if !hasTrackingCache(selectedOrder)}
-                        <div
-                            class="panel-card flex items-start gap-3 border-[var(--color-primary)]/25 bg-[var(--color-primary)]/5"
-                        >
-                            {#if isRefreshing(selectedOrder.orderNumber)}
-                                <BrailleSpinner size="sm" />
-                            {:else}
-                                <AlertCircle
-                                    class="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]"
-                                />
-                            {/if}
-                            <div class="min-w-0">
-                                <p
-                                    class="text-xs font-semibold text-[var(--color-foreground)]"
-                                >
-                                    {#if isRefreshing(selectedOrder.orderNumber)}
-                                        Fetching latest order details
-                                    {:else if refreshError(selectedOrder.orderNumber)}
-                                        Tracking details unavailable
-                                    {:else}
-                                        Tracking details not cached yet
-                                    {/if}
-                                </p>
-                                <p
-                                    class="mt-1 text-[10px] leading-relaxed text-[var(--color-muted-foreground)]"
-                                >
-                                    {refreshError(selectedOrder.orderNumber) ??
-                                        "This order will refresh automatically when possible. You can also use the refresh button above."}
-                                </p>
-                            </div>
-                        </div>
-                    {/if}
-
-                    <!-- Status Badge -->
-                    {#if hasTrackingCache(selectedOrder)}
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {statusBadgeClass(
-                                    selectedOrder.status,
-                                )}"
-                            >
-                                {statusLabel(
-                                    selectedOrder.status,
-                                    selectedOrder.statusDisplay,
-                                )}
-                            </span>
-                        </div>
-                    {/if}
-
-                    <!-- Amount -->
-                    {#if selectedOrder.amount || selectedOrder.paymentMethod}
-                        <div class="panel-card">
-                            {#if selectedOrder.amount}
-                                <p
-                                    class="text-base font-bold text-[var(--color-foreground)]"
-                                >
-                                    {formatMoney(
-                                        selectedOrder.amount.value,
-                                        selectedOrder.amount.currency,
-                                    )}
-                                </p>
-                            {/if}
-                            {#if selectedOrder.paymentMethod}
-                                <p
-                                    class="mt-0.5 text-xs text-[var(--color-muted-foreground)]"
-                                >
-                                    Payment: {selectedOrder.paymentMethod}
-                                </p>
-                            {/if}
-                        </div>
-                    {/if}
-
-                    <!-- Recipient Card -->
-                    {#if selectedOrder.recipient?.name || selectedOrder.recipient?.phone || selectedOrder.recipient?.address || selectedOrder.recipient?.city}
-                        <div class="panel-card">
-                            <h4
-                                class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]"
-                            >
-                                Recipient
-                            </h4>
-                            {#if selectedOrder.recipient?.name}
-                                <p
-                                    class="text-xs font-medium text-[var(--color-foreground)]"
-                                >
-                                    {selectedOrder.recipient.name}
-                                </p>
-                            {/if}
-                            {#if selectedOrder.recipient?.phone}
-                                <p
-                                    class="mt-0.5 text-xs text-[var(--color-muted-foreground)]"
-                                >
-                                    {selectedOrder.recipient.phone}
-                                </p>
-                            {/if}
-                            {#if selectedOrder.recipient?.address}
-                                <p
-                                    class="mt-0.5 text-xs text-[var(--color-muted-foreground)]"
-                                >
-                                    {selectedOrder.recipient.address}
-                                </p>
-                            {/if}
-                            {#if selectedOrder.recipient?.city}
-                                <p
-                                    class="text-xs text-[var(--color-muted-foreground)]"
-                                >
-                                    {selectedOrder.recipient.city}
-                                </p>
-                            {/if}
-                        </div>
-                    {/if}
-
-                    <!-- Gift Message -->
-                    {#if selectedOrder.giftMessage}
-                        <div class="panel-card">
-                            <h4
-                                class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]"
-                            >
-                                Gift Message
-                            </h4>
-                            <p
-                                class="text-xs italic text-[var(--color-foreground)]"
-                            >
-                                &ldquo;{selectedOrder.giftMessage}&rdquo;
-                            </p>
-                        </div>
-                    {/if}
-
-                    <!-- Delivery Comments -->
-                    {#if selectedOrder.comments}
-                        <div class="panel-card">
-                            <h4
-                                class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]"
-                            >
-                                Delivery Comments
-                            </h4>
-                            <p class="text-xs text-[var(--color-foreground)]">
-                                {selectedOrder.comments}
-                            </p>
-                        </div>
-                    {/if}
-
-                    <!-- Timeline -->
-                    {#if selectedOrder.tracking && selectedOrder.tracking.length > 0}
-                        <div class="panel-card">
-                            <h4
-                                class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]"
-                            >
-                                Tracking Timeline
-                            </h4>
-                            <div class="relative">
-                                {#each trackingSteps(selectedOrder) as step, i}
-                                    <div
-                                        class="flex gap-3 {i <
-                                        selectedOrder.tracking.length - 1
-                                            ? 'pb-4'
-                                            : ''}"
-                                    >
-                                        <div class="flex flex-col items-center">
-                                            {#if i === 0}
-                                                <CheckCircle2
-                                                    class="h-4 w-4 animate-pulse text-[var(--color-primary)]"
-                                                />
-                                            {:else if step.timestamp}
-                                                <CheckCircle2
-                                                    class="h-4 w-4 text-[var(--color-success)]"
-                                                />
-                                            {:else}
-                                                <Circle
-                                                    class="h-4 w-4 text-[var(--color-border)]"
-                                                />
-                                            {/if}
-                                            {#if i < selectedOrder.tracking.length - 1}
-                                                <div
-                                                    class="mt-0.5 w-px flex-1 bg-[var(--color-border)]"
-                                                ></div>
-                                            {/if}
-                                        </div>
-                                        <div class="min-w-0 flex-1 pt-px">
-                                            <p
-                                                class="text-xs font-medium text-[var(--color-foreground)]"
-                                            >
-                                                {step.step}
-                                            </p>
-                                            {#if step.timestamp}
-                                                <p
-                                                    class="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]"
-                                                >
-                                                    {formatTimestamp(
-                                                        step.timestamp,
-                                                    )}
-                                                </p>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/each}
-                            </div>
-                        </div>
-                    {/if}
-
-                    <!-- Order Dates -->
-                    {#if hasTrackingCache(selectedOrder)}
-                    <div class="panel-card">
-                        <h4
-                            class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]"
-                        >
-                            Dates
-                        </h4>
-                        {#if selectedOrder.orderDate}
-                            <div class="flex items-center justify-between py-1">
-                                <span
-                                    class="text-xs text-[var(--color-muted-foreground)]"
-                                    >Ordered</span
-                                >
-                                <span
-                                    class="text-xs font-medium text-[var(--color-foreground)]"
-                                    >{formatDate(selectedOrder.orderDate)}</span
-                                >
-                            </div>
-                        {/if}
-                        {#if selectedOrder.shippedDate}
-                            <div
-                                class="flex items-center justify-between border-t border-[var(--color-border)] py-1"
-                            >
-                                <span
-                                    class="text-xs text-[var(--color-muted-foreground)]"
-                                    >Shipped</span
-                                >
-                                <span
-                                    class="text-xs font-medium text-[var(--color-foreground)]"
-                                    >{formatDate(
-                                        selectedOrder.shippedDate,
-                                    )}</span
-                                >
-                            </div>
-                        {/if}
-                    </div>
-                    {/if}
-                </div>
-            </div>
-        {/if}
-    {/if}
 </div>

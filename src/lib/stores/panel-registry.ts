@@ -37,13 +37,20 @@ export type OpenConfig = {
   badge?: number | string;
 };
 
-const STATIC_TITLES: Record<string, string> = {
+export const PANEL_TITLES: Record<string, string> = {
   products: "Products",
   conversation: "Chat",
   cart: "Cart",
   "product-detail": "Details",
   lists: "Lists",
   sessions: "History",
+  "address-select": "Select Address",
+  "address-form": "Address Details",
+  checkout: "Create Order",
+  wishlist: "Wishlist & Alerts",
+  "delivery-info": "Delivery Check",
+  "order-tracking": "Tracking",
+  "order-confirmation": "Order Confirmed",
 };
 
 /** Create a panel record. Static panels reuse the type as id; dynamic get a uuid. */
@@ -53,7 +60,7 @@ export function createPanel(type: PanelType, config: OpenConfig = {}): Panel {
     id: kind === "static" ? type : crypto.randomUUID(),
     type,
     kind,
-    title: config.title ?? STATIC_TITLES[type] ?? type,
+    title: config.title ?? PANEL_TITLES[type] ?? type,
     data: { ...(config.data ?? {}) },
     status: config.status ?? "idle",
     badge: config.badge,

@@ -1135,10 +1135,6 @@
     .welcome-headline {
       font-size: clamp(1.15rem, 5vw, 1.5rem);
     }
-    .welcome-cta {
-      font-size: var(--fs-md);
-      padding: 0.625rem 1.25rem;
-    }
     .step-title {
       font-size: clamp(1.25rem, 5vw, 1.5rem);
     }
@@ -1156,17 +1152,6 @@
     }
     .step-panel {
       padding: 1.5rem 0.75rem;
-    }
-    .welcome-cta {
-      padding: 0.5rem 1rem;
-      font-size: var(--fs-sm);
-    }
-    .welcome-actions-row {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .welcome-skip {
-      font-size: var(--fs-xs);
     }
   }
 </style>

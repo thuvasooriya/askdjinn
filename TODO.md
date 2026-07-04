@@ -1,6 +1,9 @@
+rewrite order-banner
+render the pay buttons expiry and stuff in the orders pane
+render the click to pay link inline
+
 ### refine homescreen
 
-- [ ] Homescreen API optimization
 - [ ] add order tracking card (homescreen specific tool)
 - [ ] add carts card
 
