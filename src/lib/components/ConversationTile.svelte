@@ -57,9 +57,18 @@
       for (const part of turn.parts) {
         if (part.type === "text" && part.text) lines.push(`  ${part.text}`);
         else if (part.type === "tool-call") {
-          const base = `  [tool:${part.name} ${part.status}]`;
-          const line = part.summary ? `${base} ${part.summary}` : base;
-          lines.push(part.detail ? `${line}\n    ${part.detail}` : line);
+          const partLines: string[] = [];
+          partLines.push(`  [tool:${part.name} ${part.status}]`);
+          if (part.summary) partLines.push(`    ${part.summary}`);
+          if (part.args) {
+            const argsStr = JSON.stringify(part.args, null, 2);
+            partLines.push(`    args: ${argsStr}`);
+          }
+          if (part.result) {
+            const resultStr = JSON.stringify(part.result, null, 2);
+            partLines.push(`    result: ${resultStr}`);
+          }
+          lines.push(partLines.join("\n"));
         }
       }
     }

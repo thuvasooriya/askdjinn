@@ -391,7 +391,7 @@ class LiveVoiceStore {
         this.currentOutputTurnId = this.conv.addTurn("assistant", "voice");
       }
       const label = toolUiConfig[call.name]?.label ?? call.name;
-      this.conv.addPart(this.currentOutputTurnId, { type: "tool-call", id: call.id, name: call.name, status: "pending", label });
+      this.conv.addPart(this.currentOutputTurnId, { type: "tool-call", id: call.id, name: call.name, status: "pending", args: call.args, label });
 
       try {
         const result = await executeClientTool(call, this.toolCtx);
@@ -400,10 +400,10 @@ class LiveVoiceStore {
         // Unified logging: same summary helper as text mode, stored on the
         // tool-call part so the debug panel is consistent across modes.
         const { summary, detail } = summarizeToolCall(call.name, call.args, result.response);
-        this.conv.completeToolCall(this.currentOutputTurnId, call.id, result.response.error == null ? "done" : "error", summary, detail);
+        this.conv.completeToolCall(this.currentOutputTurnId, call.id, result.response.error == null ? "done" : "error", summary, detail, result.response);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown error";
-        this.conv.completeToolCall(this.currentOutputTurnId, call.id, "error", `${call.name} failed`, errMsg);
+        this.conv.completeToolCall(this.currentOutputTurnId, call.id, "error", `${call.name} failed`, errMsg, { error: errMsg });
         this.addLog("error", `${call.name} failed`, errMsg, "error");
         responses.push({ id: call.id, name: call.name, response: { error: errMsg } });
       }

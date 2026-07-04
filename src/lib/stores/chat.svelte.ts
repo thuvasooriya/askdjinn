@@ -94,14 +94,14 @@ class ChatStore {
         if (toolCalls.length === 0) break;
 
         for (const tc of toolCalls) {
-          conv.addPart(assistantId, { type: "tool-call", id: tc.id, name: tc.name, status: "pending", label: toolUiConfig[tc.name]?.label ?? tc.name });
+          conv.addPart(assistantId, { type: "tool-call", id: tc.id, name: tc.name, status: "pending", args: tc.args, label: toolUiConfig[tc.name]?.label ?? tc.name });
           const status = this.toolStatus(tc.name);
           if (status) agentStatus.set(status.role, status.label);
           devLog.toolCall(tc.name, tc.args);
           const result = await executeClientTool(tc, ctx);
           const { summary, detail } = summarizeToolCall(tc.name, tc.args, result.response);
           devLog.info("tool result", { name: tc.name, summary, error: result.response.error, keys: Object.keys(result.response) });
-          conv.completeToolCall(assistantId, tc.id, result.response.error ? "error" : "done", summary, detail);
+          conv.completeToolCall(assistantId, tc.id, result.response.error ? "error" : "done", summary, detail, result.response);
           const products = (result.response as { products?: Product[] }).products;
           if (Array.isArray(products)) conv.addPart(assistantId, { type: "product-results", products });
           stepMessages.push({ role: "tool", toolCallId: tc.id, content: JSON.stringify(result.response) });

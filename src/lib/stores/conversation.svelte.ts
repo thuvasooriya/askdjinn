@@ -16,7 +16,7 @@ export type TurnPart =
   | { type: "text"; text: string }
   | { type: "image"; base64: string; mimeType: string }
   | { type: "product-results"; products: Product[] }
-  | { type: "tool-call"; id: string; name: string; status: "pending" | "done" | "error"; label?: string; summary?: string; detail?: string }
+  | { type: "tool-call"; id: string; name: string; status: "pending" | "done" | "error"; label?: string; summary?: string; detail?: string; args?: Record<string, unknown>; result?: Record<string, unknown> }
   | { type: "delivery-info"; city: string; date?: string; available: boolean; rate?: number };
 
 export type TurnSource = "text" | "voice";
@@ -170,7 +170,7 @@ class ConversationStore {
   /** Complete a tool call: set its final status and attach a human-readable
    *  summary (and optional detail) describing what it did. Used by both text
    *  and live modes so the debug panel shows the same rich info either way. */
-  completeToolCall(turnId: string, toolCallId: string, status: "done" | "error", summary?: string, detail?: string) {
+  completeToolCall(turnId: string, toolCallId: string, status: "done" | "error", summary?: string, detail?: string, result?: Record<string, unknown>) {
     this.turns = this.turns.map(t => {
       if (t.id !== turnId) return t;
       let found = false;
@@ -179,7 +179,7 @@ class ConversationStore {
         parts: t.parts.map(p => {
           if (!found && p.type === "tool-call" && p.id === toolCallId) {
             found = true;
-            return { ...p, status, summary, detail };
+            return { ...p, status, summary, detail, result };
           }
           return p;
         }),
