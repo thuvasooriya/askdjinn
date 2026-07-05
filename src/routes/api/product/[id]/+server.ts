@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
 
     const raw = await callMcpTool("kapruka_get_product", { product_id: productId });
     if (typeof raw === "object" && raw !== null) {
-      console.log("[djinn] kapruka_get_product raw:", JSON.stringify(raw, null, 2));
+      // console.log("[djinn] kapruka_get_product raw:", JSON.stringify(raw, null, 2));
     }
     const normalized = normalizeProductDetail(raw);
     if (!normalized.ok) return Response.json({ error: normalized.error.message, product: null }, { status: 502 });
