@@ -16,7 +16,7 @@
     onClose,
     onAddProduct,
     onClickProduct,
-    onCheckout,
+    onCreateOrder,
     liveActive = false,
   }: {
     region: LayoutRegion | null;
@@ -24,7 +24,7 @@
     onClose: (panelId: string) => void;
     onAddProduct?: (product: Product, sourceEl: HTMLElement | null) => void;
     onClickProduct?: (product: Product) => void;
-    onCheckout?: () => void;
+    onCreateOrder?: () => void;
     liveActive?: boolean;
   } = $props();
 
@@ -44,7 +44,7 @@
           {onClose}
           {onAddProduct}
           {onClickProduct}
-          {onCheckout}
+          {onCreateOrder}
           {liveActive}
         />
       </div>
@@ -58,7 +58,7 @@
       onClose={() => onClose(panel.id)}
       {onAddProduct}
       {onClickProduct}
-      {onCheckout}
+      {onCreateOrder}
       {liveActive}
     />
   {/if}

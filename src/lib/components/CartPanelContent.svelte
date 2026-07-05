@@ -1,26 +1,31 @@
 <script lang="ts">
     import { formatMoney } from "$lib/money";
+    import { proxiedSrc } from "$lib/image";
     import type { CartItem } from "$lib/shopping-engine";
     import { ShoppingBag, Plus, Minus, Trash2 } from "@lucide/svelte";
     import Button from "$lib/ui/Button.svelte";
     import { useCart } from "$lib/stores/cart.svelte";
+    import { useUI } from "$lib/stores/ui.svelte";
     const cart = useCart();
+    const ui = useUI();
 
     let {
         items = [] as CartItem[],
         subtotal = 0,
         onRemove,
         onQuantity,
-        onCheckout,
+        onCreateOrder,
     }: {
         items?: CartItem[];
         subtotal?: number;
         onRemove?: (id: string) => void;
         onQuantity?: (id: string, qty: number) => void;
-        onCheckout?: () => void;
+        onCreateOrder?: () => void;
     } = $props();
 
     let imgErrors = $state<Record<string, boolean>>({});
+    const createOrderPanel = $derived(ui.panels.find((panel) => panel.type === "create-order"));
+    const createOrderReady = $derived(createOrderPanel ? ui.verifyPanel(createOrderPanel.id).ok : false);
 </script>
 
 {#if items.length === 0}
@@ -41,7 +46,7 @@
                 <div class="flex items-start gap-3 p-3">
                     {#if item.product.imageUrl && !imgErrors[item.product.id]}
                         <img
-                            src={item.product.imageUrl}
+                            src={proxiedSrc(item.product.imageUrl)}
                             alt={item.product.name}
                             class="h-14 w-14 rounded-lg object-cover"
                             loading="lazy"
@@ -158,9 +163,9 @@
                 variant="primary"
                 size="lg"
                 class="w-full"
-                onclick={() => onCheckout?.()}
+                onclick={() => onCreateOrder?.()}
             >
-                Create order
+                {createOrderReady ? "Review & create order" : "Add order details"}
             </Button>
         </div>
     </div>

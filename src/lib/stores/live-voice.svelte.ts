@@ -585,6 +585,8 @@ class LiveVoiceStore {
     const ui = useUI();
     const session = useSession();
     const cart = useCart();
+    const activeProductId = ui.galleryState?.productId ?? ui.productDetailId;
+    const activeProduct = activeProductId ? ui.productRegistry.get(activeProductId) : null;
 
     return {
       agentId: profile.agentId,
@@ -604,6 +606,13 @@ class LiveVoiceStore {
         query: t.query,
         products: t.products.slice(0, 6).map(p => ({ id: p.id, name: p.name, price: p.price, currency: p.currency })),
       })),
+      activeProductContext: {
+        productDetailId: ui.productDetailId,
+        galleryProductId: ui.galleryState?.productId ?? null,
+        galleryOpen: Boolean(ui.galleryState?.open),
+        galleryIndex: ui.galleryState?.activeIndex,
+        productName: activeProduct?.name,
+      },
       sessionContext: {
         isReturningUser: session.isReturningUser,
         preferredCity: profile.preferredCity ?? undefined,

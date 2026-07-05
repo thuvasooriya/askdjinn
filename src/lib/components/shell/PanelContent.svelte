@@ -14,12 +14,12 @@
 
   let {
     id,
-    onCheckout,
+    onCreateOrder,
     onAddProduct,
     aspect = "portrait" as "compact" | "portrait" | "landscape" | "square",
   }: {
     id: string;
-    onCheckout: () => void;
+    onCreateOrder: () => void;
     onAddProduct: (product: Product) => void;
     aspect?: "compact" | "portrait" | "landscape" | "square";
   } = $props();
@@ -105,7 +105,7 @@
     subtotal={cart.subtotal}
     onRemove={cart.removeItem}
     onQuantity={cart.updateQuantity}
-    onCheckout={onCheckout}
+    onCreateOrder={onCreateOrder}
   />
   {:else if id === "product-detail"}
     {#if detailProduct}

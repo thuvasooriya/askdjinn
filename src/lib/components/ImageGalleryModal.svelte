@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X, ChevronLeft, ChevronRight } from "@lucide/svelte";
+  import { proxiedSrc } from "$lib/image";
   import { fade } from "svelte/transition";
   import { browser } from "$app/environment";
   import { tick } from "svelte";
@@ -163,7 +164,7 @@
       <div class="image-wrapper">
         {#key currentImage}
           <img
-            src={currentImage}
+            src={proxiedSrc(currentImage)}
             alt={productName ? `${productName} image ${activeIndex + 1}` : ""}
             class="main-image"
             transition:fade={{ duration }}
@@ -200,7 +201,7 @@
             aria-label={`Go to image ${i + 1}`}
             onclick={() => goTo(i)}
           >
-            <img src={img} alt="" class="thumbnail-img" />
+            <img src={proxiedSrc(img)} alt="" class="thumbnail-img" />
           </button>
         {/each}
       </div>

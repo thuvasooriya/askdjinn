@@ -14,6 +14,7 @@
 import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Clock, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare } from "@lucide/svelte";
 import type { LlmTool } from "$lib/llm-engine";
 import type { OrderRecord } from "$lib/stores/session.svelte";
+import { createOrder, type CreatedOrder } from "$lib/order/create-order-client";
 import type { Product } from "$lib/shopping-engine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ export interface ClientToolContext {
   onUpdateCartQuantity: (productId: string, quantity: number) => void;
   onGetCartContents: () => Array<{ id: string; name: string; price?: number; quantity: number }>;
   onAskUser: (question: string, options: string[]) => Promise<string>;
-  onOrderCreated: (order: { orderNumber?: string; paymentUrl?: string }) => void;
+  onOrderCreated: (order: CreatedOrder) => void;
   onSetDeliveryEstimate: (estimate: { city: string; rate: number; currency: string; estimatedDate?: string } | null) => void;
   onGetOrderRecord: (orderNumber: string) => OrderRecord | undefined;
   onGetOrderRecords: () => OrderRecord[];
@@ -393,20 +394,16 @@ export const TOOLS: Record<string, ToolDefinition> = {
     ui: { icon: Send, label: "Creating order" },
     category: "shopping",
     executeClient: async (args, ctx) => {
-      const data = await fetchJson("/api/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cart: args.cart,
-          recipient: { name: args.recipient_name, phone: args.recipient_phone },
-          delivery: { address: args.delivery_address, city: args.delivery_city, date: args.delivery_date },
-          sender: { name: args.sender_name },
-          gift_message: args.gift_message ?? null,
-        }),
-      }, "Order creation");
-      const order = { orderNumber: data.orderNumber as string | undefined, paymentUrl: data.paymentUrl as string | undefined };
-      if (order.orderNumber || order.paymentUrl) ctx.onOrderCreated(order);
-      return data;
+      const data = await createOrder({
+        cart: args.cart as Array<{ product_id: string; quantity: number; icing_text?: string | null }>,
+        recipient: { name: args.recipient_name as string, phone: args.recipient_phone as string },
+        delivery: { address: args.delivery_address as string, city: args.delivery_city as string, date: args.delivery_date as string },
+        sender: { name: args.sender_name as string },
+        gift_message: (args.gift_message as string | null | undefined) ?? null,
+      });
+      const order = data as CreatedOrder;
+      if (order.orderRef || order.orderNumber || order.paymentUrl) ctx.onOrderCreated(order);
+      return data as unknown as Record<string, unknown>;
     },
   },
 
@@ -566,7 +563,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_gallery_open: {
     name: "product_gallery_open",
-    description: "Open the fullscreen image gallery for a product. Shows all product images in a large viewer.",
+    description: "Open the fullscreen image gallery for a product. Use for 'show it better', closer looks, pictures/images, or showcasing the currently referenced product.",
     parameters: {
       type: "object",
       properties: {
@@ -585,7 +582,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_gallery_close: {
     name: "product_gallery_close",
-    description: "Close the fullscreen image gallery.",
+    description: "Close the fullscreen image gallery. Use when the user returns to searching, cart/order work, tracking, or another unrelated task.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: X, label: "Closing gallery" },
     category: "ui" as const,
@@ -711,7 +708,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   cart_get_contents: {
     name: "cart_get_contents",
-    description: "Read the current contents of the user's cart, including product IDs, names, prices, and quantities. Use before checkout to verify the order.",
+    description: "Read the current contents of the user's cart, including product IDs, names, prices, and quantities. Use before creating an order to verify the order.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: ShoppingCart, label: "Checking cart" },
     category: "shopping",
@@ -749,16 +746,16 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   // ── Layout & panel-management tools (Phase 5) ───────────────────────────
   // These let the agent curate the layout (open/close/focus/minimize) and drive
-  // panel forms with validated fills. Destructive actions (place order, pay)
-  // are gated — the agent can pre-fill but only the user can confirm them.
+  // panel forms with validated fills. Panel actions stay non-destructive;
+  // confirmed order creation goes through the dedicated order_create tool.
 
   panel_open: {
     name: "panel_open",
-    description: "Open a panel by type. Only the listed types are valid — any other value will be rejected. For single-instance types (checkout, address-select), reuses an already-open panel instead of duplicating. Optionally pre-fills data.",
+    description: "Open a panel by type. Only the listed types are valid — any other value will be rejected. For single-instance types (create-order, address-select), reuses an already-open panel instead of duplicating. Optionally pre-fills data.",
     parameters: {
       type: "object",
       properties: {
-        type: param("string", "Panel type", { enum: ["products", "conversation", "cart", "product-detail", "sessions", "orders", "address-book", "memories", "address-select", "address-form", "checkout", "wishlist", "delivery-info", "order-tracking"] }),
+        type: param("string", "Panel type", { enum: ["products", "conversation", "cart", "product-detail", "sessions", "orders", "address-book", "memories", "address-select", "address-form", "create-order", "wishlist", "delivery-info", "order-tracking"] }),
         data: param("object", "Optional panel data to pre-fill or display"),
       },
       required: ["type"],
@@ -773,11 +770,11 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   panel_close: {
     name: "panel_close",
-    description: "Close a panel by id or type. Dynamic panels (checkout, address-select) resolve their promise with null. Use this to clear panels no longer needed.",
+    description: "Close a panel by id or type. Dynamic panels (create-order, address-select) resolve their promise with null. Use this to clear panels no longer needed.",
     parameters: {
       type: "object",
       properties: {
-        id: param("string", "Panel id or type (e.g. 'checkout' or the uuid from panel_open)"),
+        id: param("string", "Panel id or type (e.g. 'create-order' or the uuid from panel_open)"),
       },
       required: ["id"],
     },
@@ -814,11 +811,11 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   panel_fill_field: {
     name: "panel_fill_field",
-    description: "Fill a single form field in a panel (e.g. recipientName in checkout). The value is VALIDATED against the field's rules before being written — invalid writes are rejected with an error. Use this to silently fill details as the user speaks them, then confirm in your response. Both agent and user edits go through the same validation.",
+    description: "Fill a single form field in a panel (e.g. recipientName in create-order). The value is VALIDATED against the field's rules before being written — invalid writes are rejected with an error. Use this to silently fill details as the user speaks them, then confirm in your response. Both agent and user edits go through the same validation.",
     parameters: {
       type: "object",
       properties: {
-        panelId: param("string", "Panel id or type (e.g. 'checkout')"),
+        panelId: param("string", "Panel id or type (e.g. 'create-order')"),
         key: param("string", "Field key (e.g. 'recipientName', 'deliveryCity', 'deliveryDate')"),
         value: param("string", "The value to write"),
       },
@@ -833,7 +830,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   panel_click_action: {
     name: "panel_click_action",
-    description: "Invoke a named, NON-DESTRUCTIVE action registered by a panel (e.g. 'select-saved-address' in checkout). Destructive actions (place order, pay) are NOT available here — those require the user to press the confirm button. The available actions for each panel type are listed in the panel inventory provided in your context.",
+    description: "Invoke a named, NON-DESTRUCTIVE action registered by a panel (e.g. 'select-saved-address' in create-order). Create confirmed orders with order_create, not panel_click_action. Payment is never automated; the user pays through the returned Kapruka link. The available actions for each panel type are listed in the panel inventory provided in your context.",
     parameters: {
       type: "object",
       properties: {
@@ -852,7 +849,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   panel_verify: {
     name: "panel_verify",
-    description: "Validate a panel's form completeness and field validity. Returns missing required fields and invalid values. ALWAYS call this before destructive steps (e.g. before order_create, verify the checkout panel) — never blindly proceed if it reports missing or invalid fields.",
+    description: "Validate a panel's form completeness and field validity. Returns missing required fields and invalid values. ALWAYS call this before destructive steps (e.g. before order_create, verify the create order panel) — never blindly proceed if it reports missing or invalid fields.",
     parameters: {
       type: "object",
       properties: { panelId: param("string", "Panel id or type") },
@@ -906,13 +903,13 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   order_list: {
     name: "order_list",
-    description: "List all known orders from the user's order history cache. Returns order numbers, statuses, amounts, and delivery dates. Use this before tracking or when the user asks about their orders.",
+    description: "List all known orders from the user's order history cache. Returns create-order references, payment links, tracking order numbers when known, statuses, amounts, and delivery dates. Use this before tracking or when the user asks about their orders.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: Package, label: "Listing orders" },
     category: "shopping",
     executeClient: async (_args, ctx) => {
       const records = ctx.onGetOrderRecords();
-      return { orders: records.map(r => ({ orderNumber: r.orderNumber, status: r.status, statusDisplay: r.statusDisplay, amount: r.amount, deliveryDate: r.deliveryDate })) };
+      return { orders: records.map(r => ({ orderNumber: r.orderNumber, orderRef: r.orderRef, paymentUrl: r.paymentUrl, expiresAt: r.expiresAt, status: r.status, statusDisplay: r.statusDisplay, amount: r.amount, summary: r.summary, deliveryDate: r.deliveryDate })) };
     },
   },
 
@@ -1110,7 +1107,7 @@ export function summarizeToolCall(
     case "delivery_check":
       return { summary: response.available === false ? "Delivery unavailable" : "Delivery available", detail: `${response.city ?? args.city}` };
     case "order_create":
-      return { summary: ok ? "Order created" : "Order creation failed", detail: response.orderNumber ? `order ${response.orderNumber}` : undefined };
+      return { summary: ok ? "Order created" : "Order creation failed", detail: response.orderRef || response.orderNumber ? `ref ${response.orderRef ?? response.orderNumber}` : undefined };
     case "order_track":
       return { summary: ok ? `Tracked: ${response.statusDisplay ?? response.status ?? "order"}` : "Tracking failed", detail: `${args.order_number}` };
     case "web_search":

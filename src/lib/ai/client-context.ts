@@ -15,6 +15,7 @@ import { useConversation } from "$lib/stores/conversation.svelte";
 import { useSessionHistory } from "$lib/stores/session-history.svelte";
 import { useInteraction } from "$lib/stores/interaction.svelte";
 import { useAddresses } from "$lib/stores/addresses.svelte";
+import { createOrderRecord, type CreatedOrder } from "$lib/order/create-order-client";
 
 export function buildClientToolContext(): ClientToolContext {
   const ui = useUI();
@@ -52,7 +53,15 @@ export function buildClientToolContext(): ClientToolContext {
     onRemoveFromCart: (id) => cart.removeItem(id),
     onUpdateCartQuantity: (id, qty) => cart.updateQuantity(id, qty),
     onGetCartContents: () => cart.items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-    onOrderCreated: (order) => { ui.setOrderResult(order); if (order.orderNumber) session.addOrder(order.orderNumber); cart.clear(); },
+    onOrderCreated: (order) => {
+      ui.setOrderResult(order);
+      const record = createOrderRecord(order as CreatedOrder);
+      if (record) session.upsertOrderRecord(record);
+      for (const panel of [...ui.panels].filter((p) => p.type === "create-order")) {
+        ui.close(panel.id, order);
+      }
+      cart.clear();
+    },
     onAskUser: (question, options) => new Promise<string>((resolve) => ui.setAskUser(question, options, resolve)),
     onSetDeliveryEstimate: (estimate) => cart.setDeliveryEstimate(estimate),
     onGetOrderRecord: (orderNumber) => session.getOrderRecord(orderNumber),
@@ -89,11 +98,11 @@ export function buildClientToolContext(): ClientToolContext {
       const panel = ui.panels.find(p => p.id === idOrType || p.type === idOrType);
       if (!panel) return { ok: false, error: `Panel "${idOrType}" not found` };
       // Actions are declared in the panel contract; only non-destructive ones
-      // are invokable here. Destructive (place-order, pay) stay user-only.
+      // are invokable here. Confirmed order creation uses order_create.
       const contract = getContract(panel.type);
       const act = contract.actions?.[action];
       if (!act) return { ok: false, error: `Action "${action}" not available on ${panel.type}` };
-      if (act.destructive) return { ok: false, error: `Action "${action}" is destructive — user-only` };
+      if (act.destructive) return { ok: false, error: `Action "${action}" is destructive. Use order_create for confirmed order creation; payment stays with the returned Kapruka link.` };
       const result = act.run({ panelId: panel.id, data: panel.data, update: (d) => ui.updatePanelData(panel.id, d) }, ...(args ?? []));
       return { ok: true, result };
     },

@@ -11,6 +11,9 @@
   import { browser } from "$app/environment";
   import { fly, fade } from "svelte/transition";
   import { onDestroy } from "svelte";
+  import OrderConfirmationCard from "$lib/components/OrderConfirmationCard.svelte";
+  import { getCreatedOrderFromToolPart, type ToolCallPart } from "$lib/order/order-render";
+  import type { CreatedOrder } from "$lib/order/create-order-client";
 
   const conv = useConversation();
   const ui = useUI();
@@ -117,12 +120,13 @@
 
   type RenderItem =
     | { type: "text"; text: string }
-    | { type: "tool-burst"; burst: ToolBurst };
+    | { type: "tool-burst"; burst: ToolBurst }
+    | { type: "order-confirmation"; order: CreatedOrder };
 
   const renderItems = $derived.by((): RenderItem[] => {
     if (!lastTurn) return [];
     const items: RenderItem[] = [];
-    let currentBurst: TurnPart[] = [];
+    let currentBurst: ToolCallPart[] = [];
 
     const flushBurst = () => {
       if (currentBurst.length === 0) return;
@@ -143,7 +147,13 @@
 
     for (const part of lastTurn.parts) {
       if (part.type === "tool-call") {
-        currentBurst.push(part);
+        const createdOrder = getCreatedOrderFromToolPart(part);
+        if (createdOrder) {
+          flushBurst();
+          items.push({ type: "order-confirmation", order: createdOrder });
+        } else {
+          currentBurst.push(part);
+        }
       } else if (part.type === "product-results" || part.type === "image" || part.type === "delivery-info") {
         // Tool output parts belong to the burst — don't break consecutiveness
         // but don't add to burst either (not tool-calls)
@@ -272,6 +282,8 @@
                     </span>
                   {/if}
                 </span>
+              {:else if item.type === "order-confirmation"}
+                <OrderConfirmationCard order={item.order} compact />
               {/if}
             {/each}
           {/if}
@@ -367,19 +379,6 @@
     overflow-y: auto;
   }
 
-  .message-image-container {
-    max-width: 12rem;
-    max-height: 10rem;
-    overflow: hidden;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    margin-block: 0.25rem;
-  }
-  .message-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
   .bubble-text {
     font-size: var(--fs-md);
     line-height: 1.5;

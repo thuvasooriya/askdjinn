@@ -46,7 +46,7 @@ export const PANEL_TITLES: Record<string, string> = {
   sessions: "History",
   "address-select": "Select Address",
   "address-form": "Address Details",
-  checkout: "Create Order",
+  "create-order": "Create Order",
   wishlist: "Wishlist & Alerts",
   "delivery-info": "Delivery Check",
   "order-tracking": "Tracking",

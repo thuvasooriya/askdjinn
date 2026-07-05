@@ -10,7 +10,7 @@
     //  - dynamic   → DynamicPanel (agent-driven)
     //  - static    → PanelContent (cart / product-detail / lists / sessions)
     //
-    // The cart "fly-to-cart" target and onCheckout are plumbed via callbacks so
+    // The cart "fly-to-cart" target and onCreateOrder are plumbed via callbacks so
     // AppShell keeps ownership of cross-panel interactions.
 
     import type { Panel } from "$lib/stores/panel-registry";
@@ -28,14 +28,14 @@
         onClose,
         onAddProduct,
         onClickProduct,
-        onCheckout,
+        onCreateOrder,
         liveActive = false,
     }: {
         panel: Panel;
         onClose: () => void;
         onAddProduct?: (product: Product, sourceEl: HTMLElement | null) => void;
         onClickProduct?: (product: Product) => void;
-        onCheckout?: () => void;
+        onCreateOrder?: () => void;
         liveActive?: boolean;
     } = $props();
 
@@ -55,14 +55,14 @@
     // For PanelContent (which passes only the product — no fly-to-cart element).
     const addProduct1 = (p: Product) => (onAddProduct ?? noopProduct2)(p, null);
     const clickProduct = (p: Product) => (onClickProduct ?? noop)(p);
-    const checkout = () => (onCheckout ?? noop)();
+    const createOrder = () => (onCreateOrder ?? noop)();
     const ui = useUI();
     // Panels that render their own header with actions — the handle still
     // appears on ALL panels; this just flags panels with custom header chrome.
     const hasOwnHeader = $derived(
         [
             "conversation",
-            "checkout",
+            "create-order",
             "address-select",
             "address-form",
             "wishlist",
@@ -147,7 +147,7 @@
             {:else}
                 <PanelContent
                     id={panel.id === "product-detail" ? "product-detail" : panel.id}
-                    onCheckout={checkout}
+                    onCreateOrder={createOrder}
                     onAddProduct={addProduct1}
                     {aspect}
                 />

@@ -139,10 +139,12 @@ export function normalizeOrder(result: unknown): ShoppingResult<OrderResult> {
   try {
     const data = asRecord(extractDataUnsafe(result));
     const rawText = extractTextUnsafe(result);
-    const paymentUrl = getString(data, ["payment_url", "paymentUrl", "pay_url", "payUrl", "url"]) ?? rawText.match(/https?:\/\/\S+/)?.[0]?.replace(/[.,;:!?)\]}>]+$/, "");
+    const orderRef = getString(data, ["order_ref", "orderRef", "reference", "ref", "id"]);
+    const paymentUrl = getString(data, ["checkout_url", "checkoutUrl", "payment_url", "paymentUrl", "pay_url", "payUrl", "url"]) ?? rawText.match(/https?:\/\/\S+/)?.[0]?.replace(/[.,;:!?)\]}>]+$/, "");
     return ok({
-      type: "checkout_created",
-      orderNumber: getString(data, ["order_number", "orderNumber", "order_ref", "orderRef", "id"]),
+      type: "order_created",
+      orderRef,
+      orderNumber: getString(data, ["order_number", "orderNumber"]) ?? orderRef,
       paymentUrl,
       summary: normalizeOrderSummary(data),
       expiresAt: getString(data, ["expires_at", "expiresAt"]),
@@ -404,7 +406,13 @@ function getNestedBoolean(value: unknown, keys: string[]) {
 function normalizeOrderSummary(data: Record<string, unknown>) {
   const raw = asOptionalRecord(getValue(data, ["summary", "totals", "breakdown", "order_summary", "orderSummary"]));
   if (!raw) return undefined;
-  const result = { itemsTotal: getNumber(raw, ["items_total", "itemsTotal", "subtotal", "sub_total", "subTotal"]), deliveryFee: getNumber(raw, ["delivery_fee", "deliveryFee", "shipping", "shipping_fee", "shippingFee", "delivery"]), grandTotal: getNumber(raw, ["grand_total", "grandTotal", "total", "amount"]), currency: getString(raw, ["currency"]) };
+  const result = {
+    itemsTotal: getNumber(raw, ["items_total", "itemsTotal", "subtotal", "sub_total", "subTotal"]),
+    deliveryFee: getNumber(raw, ["delivery_fee", "deliveryFee", "shipping", "shipping_fee", "shippingFee", "delivery"]),
+    addonsTotal: getNumber(raw, ["addons_total", "addonsTotal", "add_ons_total", "addOnsTotal"]),
+    grandTotal: getNumber(raw, ["grand_total", "grandTotal", "total", "amount"]),
+    currency: getString(raw, ["currency"]),
+  };
   return Object.values(result).some((value) => value != null) ? result : undefined;
 }
 

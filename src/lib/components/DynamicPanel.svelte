@@ -16,6 +16,7 @@
   import { useSession } from "$lib/stores/session.svelte";
   import { toasts } from "$lib/ui/toast";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
+  import { createOrder, createOrderRecord } from "$lib/order/create-order-client";
 
   const addresses = useAddresses();
   const ui = useUI();
@@ -27,10 +28,13 @@
   let editingAddressId = $state<string | null>(null);
 
   // Fields come from the panel contract (single source of truth) — no more
-  // hardcoded checkoutFields/addressFields arrays drifting from the schema.
+  // hardcoded createOrderFields/addressFields arrays drifting from the schema.
   // The agent discovers the same fields via the prompt inventory.
   const contract = $derived(getContract(panel.type));
   const fields = $derived(contract.fields ?? []);
+  let submitting = $state(false);
+  const createOrderValidation = $derived(panel.type === "create-order" ? ui.verifyPanel(panel.id) : null);
+  const canCreateOrder = $derived(panel.type === "create-order" && cart.items.length > 0 && createOrderValidation?.ok === true && !submitting);
   // Per-field validation errors surfaced to the user on edit.
   let fieldErrors = $state<Record<string, string>>({});
 
@@ -53,36 +57,29 @@
       : [];
   }
 
-  let submitting = $state(false);
-
   async function submit() {
-    if (panel.type === "checkout") {
+    if (panel.type === "create-order") {
+      const validation = ui.verifyPanel(panel.id);
+      if (cart.items.length === 0) {
+        toasts.error("Add at least one item before creating an order.");
+        return;
+      }
+      if (!validation.ok) {
+        toasts.error("Complete the required order details first.");
+        return;
+      }
       submitting = true;
       try {
-        const res = await fetch("/api/create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cart: cart.items.map((i: any) => ({ product_id: i.product.id, quantity: i.quantity, icing_text: i.icingText })),
-            recipient: { name: str(panel.data.recipientName), phone: str(panel.data.recipientPhone) },
-            delivery: { address: str(panel.data.streetAddress), city: str(panel.data.deliveryCity), date: str(panel.data.deliveryDate) },
-            sender: { name: str(panel.data.senderName) },
-            gift_message: panel.data.giftMessage ? str(panel.data.giftMessage) : null,
-          })
+        const data = await createOrder({
+          cart: cart.items.map((i) => ({ product_id: i.product.id, quantity: i.quantity, icing_text: (i as { icingText?: string }).icingText })),
+          recipient: { name: str(panel.data.recipientName), phone: str(panel.data.recipientPhone) },
+          delivery: { address: str(panel.data.streetAddress), city: str(panel.data.deliveryCity), date: str(panel.data.deliveryDate) },
+          sender: { name: str(panel.data.senderName) },
+          gift_message: panel.data.giftMessage ? str(panel.data.giftMessage) : null,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Failed to create order");
-        
-        ui.setOrderResult({ orderNumber: data.orderNumber, paymentUrl: data.paymentUrl });
-        if (data.orderNumber) {
-          session.upsertOrderRecord({
-            orderNumber: data.orderNumber,
-            paymentUrl: data.paymentUrl,
-            createdAt: Date.now(),
-            lastCheckedAt: 0,
-            status: "pending_payment"
-          });
-        }
+        ui.setOrderResult({ orderNumber: data.orderNumber, orderRef: data.orderRef, paymentUrl: data.paymentUrl, expiresAt: data.expiresAt });
+        const record = createOrderRecord(data);
+        if (record) session.upsertOrderRecord(record);
         cart.clear();
         ui.closeDynamicPanel(panel.id, data);
         toasts.success("Order created successfully!");
@@ -143,8 +140,19 @@
 </script>
 
 <div class="panel glass" role="dialog" aria-label={panel.title}>
-  <header class="panel-header">
+  <header class="panel-header" class:panel-header--with-action={panel.type === "create-order"}>
     <h3 class="panel-title">{panel.title}</h3>
+    {#if panel.type === "create-order"}
+      <button type="button" class="btn-primary create-order-header-btn" disabled={!canCreateOrder} onclick={submit}>
+        {#if submitting}
+          <BrailleSpinner size="sm" />
+          <span>Creating</span>
+        {:else}
+          <ShoppingBag class="h-4 w-4" />
+          <span>Create Order</span>
+        {/if}
+      </button>
+    {/if}
   </header>
 
   <div class="panel-body">
@@ -225,7 +233,7 @@
         </div>
       </form>
 
-    {:else if panel.type === "checkout"}
+    {:else if panel.type === "create-order"}
       <!-- Cart summary -->
       {#if cart.items.length > 0}
         <div class="cart-summary">
@@ -255,15 +263,6 @@
             {#if fieldErrors[field.key]}<span class="field-error">{fieldErrors[field.key]}</span>{/if}
           </label>
         {/each}
-        <div class="panel-form-actions">
-          <button type="submit" class="btn-primary" disabled={submitting}>
-            {#if submitting}
-              <BrailleSpinner size="sm" /> Creating Order
-            {:else}
-              <ShoppingBag class="h-4 w-4" /> Create Order
-            {/if}
-          </button>
-        </div>
       </form>
 
     {:else if panel.type === "wishlist"}
@@ -384,6 +383,7 @@
   }
 
   .panel-header {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -391,6 +391,10 @@
     padding: 0 1rem;
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
+  }
+
+  .panel-header--with-action {
+    padding-right: 8.75rem;
   }
 
   .panel-title {
@@ -470,13 +474,26 @@
     transition: opacity 0.15s;
   }
   .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .create-order-header-btn {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    min-height: 2.125rem;
+    padding-inline: 0.75rem;
+    white-space: nowrap;
+  }
   .btn-secondary {
     padding: 0.5rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg);
     background: var(--color-muted); color: var(--color-foreground);
     font-size: var(--fs-md); font-weight: 500; cursor: pointer;
   }
 
-  /* Cart summary in checkout */
+  /* Cart summary in create-order */
   .cart-summary { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 0.625rem; display: flex; flex-direction: column; gap: 0.25rem; }
   .cart-line { display: flex; align-items: baseline; gap: 0.5rem; font-size: var(--fs-sm); }
   .cart-line-name { flex: 1; color: var(--color-foreground); }

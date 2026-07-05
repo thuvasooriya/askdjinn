@@ -1,9 +1,9 @@
-import { CheckoutValidationError } from "./errors";
-import type { CheckoutDraft, CheckoutItem, ShoppingResult } from "./types";
+import { CreateOrderValidationError } from "./errors";
+import type { CreateOrderDraft, ShoppingResult } from "./types";
 
-/** Validate checkout draft before creating a real order or payment link. */
-export function validateCheckoutDraft(draft: CheckoutDraft): ShoppingResult<CheckoutDraft> {
-  if (!draft.cart.length) return fail("Checkout requires at least one item");
+/** Validate an order draft before creating a real payment link. */
+export function validateCreateOrderDraft(draft: CreateOrderDraft): ShoppingResult<CreateOrderDraft> {
+  if (!draft.cart.length) return fail("Create order requires at least one item");
   if (!draft.recipient.name.trim()) return fail("Recipient name is required");
   if (!draft.recipient.phone.trim()) return fail("Recipient phone is required");
   if (!draft.delivery.address.trim()) return fail("Delivery address is required");
@@ -19,5 +19,5 @@ function ok<T>(data: T): ShoppingResult<T> {
 }
 
 function fail<T>(message: string): ShoppingResult<T> {
-  return { ok: false, error: new CheckoutValidationError(message) };
+  return { ok: false, error: new CreateOrderValidationError(message) };
 }

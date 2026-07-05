@@ -337,7 +337,7 @@
             <PanelEmptyState
                 icon={MapPin}
                 title="No saved addresses"
-                description="Add one to speed up checkout."
+                description="Add one to speed up creating orders."
             />
         {:else}
             <!-- Address list -->

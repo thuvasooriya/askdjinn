@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatMoney } from "$lib/money";
+  import { proxiedSrc } from "$lib/image";
   import type { Product } from "$lib/shopping-engine";
   import { untrack } from "svelte";
   import {
@@ -211,7 +212,7 @@
             aria-label="Open gallery"
           >
             <img
-              src={displayImages[activeImg] ?? displayImages[0]}
+              src={proxiedSrc(displayImages[activeImg] ?? displayImages[0])}
               alt={product.name}
               class="main-image"
               onerror={() => (imgError = true)}
@@ -274,7 +275,7 @@
               aria-label="View image {i + 1}"
               aria-current={i === activeImg ? "true" : undefined}
             >
-              <img src={img} alt="" />
+              <img src={proxiedSrc(img)} alt="" />
             </button>
           {/each}
         </div>

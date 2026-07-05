@@ -29,7 +29,7 @@ export interface ProductAttributes {
   [key: string]: string | undefined;
 }
 
-/** Product snapshot used by search, cart, checkout, and tracking features. */
+/** Product snapshot used by search, cart, create-order, and tracking features. */
 export interface Product {
   id: string;
   name: string;
@@ -74,7 +74,7 @@ export interface CartItem {
   selectedVariantId?: string;
 }
 
-/** Named cart with local business rules and checkout hints. */
+/** Named cart with local business rules and create-order hints. */
 export interface Cart {
   id: string;
   name: string;
@@ -144,21 +144,21 @@ export interface DeliveryCheck {
   rawText?: string;
 }
 
-/** Checkout line item sent to an order provider. */
-export interface CheckoutItem {
+/** Create-order line item sent to an order provider. */
+export interface CreateOrderItem {
   productId: string;
   quantity: number;
   icingText?: string;
 }
 
-/** Recipient details required before creating a checkout. */
-export interface CheckoutRecipient {
+/** Recipient details required before creating an order. */
+export interface CreateOrderRecipient {
   name: string;
   phone: string;
 }
 
-/** Delivery details required before creating a checkout. */
-export interface CheckoutDelivery {
+/** Delivery details required before creating an order. */
+export interface CreateOrderDelivery {
   address: string;
   city: string;
   locationType?: "house" | "apartment" | "office" | "other";
@@ -166,29 +166,32 @@ export interface CheckoutDelivery {
   instructions?: string;
 }
 
-/** Sender details required before creating a checkout. */
-export interface CheckoutSender {
+/** Sender details required before creating an order. */
+export interface CreateOrderSender {
   name: string;
   anonymous?: boolean;
 }
 
-/** Validated checkout draft used before creating a real payment link. */
-export interface CheckoutDraft {
+/** Validated create-order draft used before creating a real payment link. */
+export interface CreateOrderDraft {
   cartId: string;
-  cart: CheckoutItem[];
-  recipient: CheckoutRecipient;
-  delivery: CheckoutDelivery;
-  sender: CheckoutSender;
+  cart: CreateOrderItem[];
+  recipient: CreateOrderRecipient;
+  delivery: CreateOrderDelivery;
+  sender: CreateOrderSender;
   giftMessage?: string;
   currency?: string;
 }
 
 /** Normalized order creation response. */
 export interface OrderResult {
-  type: "checkout_created";
+  type: "order_created";
+  /** Pre-payment order reference returned by Kapruka create_order. */
+  orderRef?: string;
+  /** Back-compat alias for orderRef in older UI code. Not the post-payment tracking order number. */
   orderNumber?: string;
   paymentUrl?: string;
-  summary?: { itemsTotal?: number; deliveryFee?: number; grandTotal?: number; currency?: string };
+  summary?: { itemsTotal?: number; deliveryFee?: number; addonsTotal?: number; grandTotal?: number; currency?: string };
   expiresAt?: string;
   rawText?: string;
 }

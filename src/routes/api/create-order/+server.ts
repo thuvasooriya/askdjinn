@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { callMcpTool } from "$lib/server/mcp";
-import { normalizeOrder, validateCheckoutDraft } from "$lib/shopping-engine";
-import type { CheckoutDraft } from "$lib/shopping-engine";
+import { normalizeOrder, validateCreateOrderDraft } from "$lib/shopping-engine";
+import type { CreateOrderDraft } from "$lib/shopping-engine";
 import { todayISO } from "$lib/dates";
 import { checkRateLimit } from "$lib/server/rate-limiter";
 import { isAllowedOrigin, originErrorResponse } from "$lib/server/origin-guard";
@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ request }) => {
     if (parsed.data.delivery.date < todayISO()) return Response.json({ error: "Delivery date cannot be in the past" }, { status: 400 });
 
     const body = parsed.data;
-    const draft: CheckoutDraft = {
+    const draft: CreateOrderDraft = {
       cartId: "active",
       cart: body.cart.map((item) => ({ productId: item.product_id, quantity: item.quantity, icingText: item.icing_text ?? undefined })),
       recipient: body.recipient,
@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
       giftMessage: body.gift_message ?? undefined,
       currency: body.currency,
     };
-    const validated = validateCheckoutDraft(draft);
+    const validated = validateCreateOrderDraft(draft);
     if (!validated.ok) return Response.json({ error: validated.error.message }, { status: 400 });
 
     const raw = await callMcpTool("kapruka_create_order", body, 30_000);

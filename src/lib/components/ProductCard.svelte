@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatMoney } from "$lib/money";
+  import { proxiedSrc } from "$lib/image";
   import type { Product } from "$lib/shopping-engine";
   import { Heart, Star } from "@lucide/svelte";
   import Badge from "$lib/ui/Badge.svelte";
@@ -85,7 +86,7 @@
     <div class="product-card-image">
       {#if product.imageUrl && !imgError}
         <img
-          src={product.imageUrl}
+          src={proxiedSrc(product.imageUrl)}
           alt={product.name}
           class="product-card-img"
           loading="lazy"
@@ -113,16 +114,6 @@
         {/if}
       </div>
 
-      <!-- Like button -->
-      <button
-        onclick={handleLike}
-        type="button"
-        class="product-card-like-btn"
-        aria-label="Toggle liked"
-      >
-        <Heart class="h-3.5 w-3.5 {liked ? 'fill-[var(--color-destructive)] text-[var(--color-destructive)]' : 'text-white'}" />
-      </button>
-
       {#if highlighted}
         <div
           class="product-card-highlight-chip"
@@ -139,6 +130,16 @@
         </div>
       {/if}
     </div>
+
+    <!-- Like button -->
+    <button
+      onclick={handleLike}
+      type="button"
+      class="product-card-like-btn"
+      aria-label="Toggle liked"
+    >
+      <Heart class="h-3.5 w-3.5 {liked ? 'fill-[var(--color-destructive)] text-[var(--color-destructive)]' : 'text-white'}" />
+    </button>
 
     <!-- Info section -->
     <div class="product-card-info">
@@ -200,8 +201,11 @@
   }
 
   .product-card {
+    position: relative;
     display: flex;
     flex-direction: column;
+    height: 18.75rem;
+    min-height: 18.75rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -232,6 +236,7 @@
 
   .product-card-image {
     position: relative;
+    flex: 0 0 auto;
     aspect-ratio: 1 / 1;
     overflow: hidden;
     background: var(--color-muted);
@@ -274,7 +279,8 @@
   .product-card-like-btn {
     position: absolute;
     right: 0.5rem;
-    top: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 3;
     display: flex;
     height: 1.75rem;
     width: 1.75rem;
@@ -368,9 +374,11 @@
 
   .product-card-info {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 0.25rem;
-    padding: 0.75rem;
+    min-height: 0;
+    padding: 0.75rem 0.75rem 2.625rem;
   }
 
   .product-card-name {
@@ -382,11 +390,13 @@
     font-size: var(--fs-sm);
     font-weight: 500;
     line-height: 1.25;
+    min-height: 2.1875rem;
     color: var(--color-foreground);
     margin: 0;
   }
 
   .product-card-category {
+    min-height: 0.875rem;
     font-size: var(--fs-xs);
     font-weight: 500;
     text-transform: uppercase;
@@ -397,6 +407,7 @@
 
   .product-card-price-row {
     margin-top: 0.25rem;
+    min-height: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -404,7 +415,9 @@
   }
 
   .product-card-price {
+    min-width: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: 0.25rem;
   }

@@ -253,7 +253,7 @@
                 {#if hintVisible}
                   <div class="orb-hint">
                     <div class="hint-text">click on the orb to give input<br>and click and hold for awesomeness</div>
-                    <SpiralArrow class="hint-arrow" aria-hidden="true" />
+                    <SpiralArrow class="hint-arrow" />
                   </div>
                 {/if}
             <!-- Orb -->

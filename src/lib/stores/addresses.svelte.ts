@@ -1,5 +1,5 @@
 // Persisted address list. Both user and agent can add/edit/delete.
-// Used by the checkout flow: agent shows address panel, user selects or adds.
+// Used by the create-order flow: agent shows address panel, user selects or adds.
 
 import * as persist from "./persistence";
 

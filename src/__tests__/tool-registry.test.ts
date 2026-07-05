@@ -15,7 +15,7 @@ describe("tool-registry", () => {
       expect(Array.isArray(tool.parameters.required)).toBe(true);
       expect(tool.ui.icon).toBeTruthy();
       expect(tool.ui.label).toBeTruthy();
-      expect(["shopping", "ui", "memory", "web"]).toContain(tool.category);
+      expect(["shopping", "ui", "memory", "web", "grounding"]).toContain(tool.category);
     }
   });
 
@@ -46,8 +46,8 @@ describe("tool-registry", () => {
     expect(names.length).toBe(ALL_TOOLS.length);
   });
 
-  test("all 40 tools are registered (25 original + 7 panel-management + 5 order/address + 3 gallery)", () => {
-    expect(ALL_TOOLS.length).toBe(40);
+  test("all expected tools are registered", () => {
+    expect(ALL_TOOLS.length).toBe(39);
   });
 
   test("shopping tools include order tools and address tools", () => {
@@ -149,7 +149,7 @@ describe("executeClientTool", () => {
       onRemoveFromCart: (_id: string) => {},
       onUpdateCartQuantity: (_id: string, _qty: number) => {},
       onGetCartContents: () => [] as Array<{ id: string; name: string; price?: number; quantity: number }>,
-      onOrderCreated: (_order: { orderNumber?: string; paymentUrl?: string }) => {},
+      onOrderCreated: (_order: any) => {},
       onAskUser: async (_question: string, _options: string[]) => "",
       onSearch: async (_args: any) => [] as any[],
       onShowPanel: async (_config: any) => null,

@@ -253,7 +253,7 @@
                     No orders yet
                 </p>
                 <p class="mt-1 text-xs text-[var(--color-muted-foreground)]/70">
-                    Your orders will appear here after checkout.
+                    Your orders will appear here after creating an order.
                 </p>
             </div>
         {:else}

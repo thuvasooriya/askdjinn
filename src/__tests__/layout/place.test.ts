@@ -23,7 +23,7 @@ describe("selectLayout purity (the state_unsafe_mutation fix)", () => {
   test("selectVisiblePanels respects priority + recency under cap", () => {
     const old = createPanel("sessions", { kind: "static" });
     old.createdAt = 1000;
-    const needsInput = createPanel("checkout", { kind: "dynamic", resolve: () => {}, status: "needs-input" });
+    const needsInput = createPanel("create-order", { kind: "dynamic", resolve: () => {}, status: "needs-input" });
     const pinned = createPanel("cart", { kind: "static", pinned: true });
     pinned.createdAt = 2000;
     const young = createPanel("wishlist", { kind: "static" });
@@ -31,7 +31,7 @@ describe("selectLayout purity (the state_unsafe_mutation fix)", () => {
     const visible = selectVisiblePanels([old, needsInput, pinned, young], "split-small"); // cap 2
     const ids = visible.map(p => p.type);
     // needs-input bypasses cap; pinned wins the remaining slot; old (sessions) is evicted.
-    expect(ids).toContain("checkout");
+    expect(ids).toContain("create-order");
     expect(ids).toContain("cart");
     expect(ids).not.toContain("sessions");
   });

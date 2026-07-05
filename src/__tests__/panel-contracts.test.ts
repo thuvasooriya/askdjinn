@@ -11,7 +11,7 @@ describe("panel-contracts", () => {
     }
   });
   test("form-collecting panels are single-instance", () => {
-    expect(CONTRACTS.checkout.instances).toBe("single");
+    expect(CONTRACTS["create-order"].instances).toBe("single");
     expect(CONTRACTS["address-select"].instances).toBe("single");
     expect(CONTRACTS["address-form"].instances).toBe("single");
   });
@@ -19,16 +19,16 @@ describe("panel-contracts", () => {
     expect(CONTRACTS["product-detail"].instances).toBe("multiple");
     expect(CONTRACTS["order-tracking"].instances).toBe("multiple");
   });
-  test("checkout declares required fillable fields", () => {
-    const fields = CONTRACTS.checkout.fields ?? [];
+  test("create-order declares required fillable fields", () => {
+    const fields = CONTRACTS["create-order"].fields ?? [];
     const keys = fields.map(f => f.key);
     expect(keys).toContain("recipientName");
     expect(keys).toContain("deliveryCity");
     expect(keys).toContain("deliveryDate");
     expect(fields.find(f => f.key === "recipientName")?.required).toBe(true);
   });
-  test("checkout deliveryDate has a future-date validator", () => {
-    const f = CONTRACTS.checkout.fields?.find(x => x.key === "deliveryDate");
+  test("create-order deliveryDate has a future-date validator", () => {
+    const f = CONTRACTS["create-order"].fields?.find(x => x.key === "deliveryDate");
     expect(f?.validate).toBeDefined();
     expect(f?.validate?.("not-a-date", {})).toBeTruthy();
     expect(f?.validate?.("2020-01-01", {})).toBeTruthy(); // past

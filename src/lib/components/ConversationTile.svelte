@@ -18,6 +18,8 @@
   import { toasts } from "$lib/ui/toast";
   import ChatInputBar from "./shell/ChatInputBar.svelte";
   import { exportFullDebugBundle } from "$lib/debug/app-inspector";
+  import OrderConfirmationCard from "$lib/components/OrderConfirmationCard.svelte";
+  import { getCreatedOrderFromToolPart } from "$lib/order/order-render";
 
   const reducedMotion = $derived(typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let { liveActive = false }: { liveActive?: boolean } = $props();
@@ -131,12 +133,17 @@
               {#if part.type === "text" && part.text}
                 <div class="bubble-text">{@html renderMarkdown(part.text)}</div>
               {:else if part.type === "tool-call"}
-                <div class="chip chip--{part.status}">
-                  {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.label ?? part.name} />{/if}
-                  <span class="chip-label">{part.label ?? part.name}</span>
-                  {#if part.detail}<span class="chip-detail">{part.detail}</span>{/if}
-                  {#if part.summary}<span class="chip-summary">{part.summary}</span>{/if}
-                </div>
+                {@const createdOrder = getCreatedOrderFromToolPart(part)}
+                {#if createdOrder}
+                  <OrderConfirmationCard order={createdOrder} />
+                {:else}
+                  <div class="chip chip--{part.status}">
+                    {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.label ?? part.name} />{/if}
+                    <span class="chip-label">{part.label ?? part.name}</span>
+                    {#if part.detail}<span class="chip-detail">{part.detail}</span>{/if}
+                    {#if part.summary}<span class="chip-summary">{part.summary}</span>{/if}
+                  </div>
+                {/if}
               {:else if part.type === "image"}
                 <div class="message-image-container">
                   <img src="data:{part.mimeType};base64,{part.base64}" alt="Sent media" class="message-image" />

@@ -20,10 +20,10 @@ export class ShoppingValidationError extends ShoppingError {
   }
 }
 
-/** Raised when checkout cannot proceed without user correction. */
-export class CheckoutValidationError extends ShoppingError {
+/** Raised when order creation cannot proceed without user correction. */
+export class CreateOrderValidationError extends ShoppingError {
   constructor(message: string, details?: unknown) {
-    super(message, { code: "checkout_validation_error", recoverable: true, details });
+    super(message, { code: "create_order_validation_error", recoverable: true, details });
   }
 }
 

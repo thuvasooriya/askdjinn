@@ -256,13 +256,21 @@ describe("normalizeTracking", () => {
 });
 
 describe("normalizeOrder", () => {
-  test("parses payment_url and order_number", () => {
-    const result = normalizeOrder(textResponse({ payment_url: "https://pay.example/123", order_number: "ORD-123" }));
+  test("parses Kapruka create-order reference, payment link, expiry, and summary", () => {
+    const result = normalizeOrder(textResponse({
+      checkout_url: "https://pay.example/123",
+      order_ref: "ORD-123",
+      summary: { items_total: 1000, delivery_fee: 250, addons_total: 50, grand_total: 1300, currency: "LKR" },
+      expires_at: "2026-05-20T13:45:00+05:30",
+    }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.paymentUrl).toBe("https://pay.example/123");
+    expect(result.data.orderRef).toBe("ORD-123");
     expect(result.data.orderNumber).toBe("ORD-123");
+    expect(result.data.summary?.addonsTotal).toBe(50);
+    expect(result.data.expiresAt).toBe("2026-05-20T13:45:00+05:30");
   });
 
   test("extracts payment URL embedded in text", () => {

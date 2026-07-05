@@ -12,20 +12,20 @@ describe("panel-registry pure logic", () => {
   });
 
   test("createPanel for dynamic gets a uuid and is not the type", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} });
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} });
     expect(p.kind).toBe("dynamic");
-    expect(p.id).not.toBe("checkout");
+    expect(p.id).not.toBe("create-order");
     expect(p.id.length).toBeGreaterThan(8);
     expect(typeof p.resolve).toBe("function");
   });
 
   test("canOpen returns existing for single-instance type", () => {
-    const existing = createPanel("checkout", { kind: "dynamic", resolve: () => {} });
-    expect(canOpen([existing], "checkout")).toBe(existing);
+    const existing = createPanel("create-order", { kind: "dynamic", resolve: () => {} });
+    expect(canOpen([existing], "create-order")).toBe(existing);
   });
 
   test("canOpen returns null when no existing single-instance panel", () => {
-    expect(canOpen([], "checkout")).toBeNull();
+    expect(canOpen([], "create-order")).toBeNull();
   });
 
   test("canOpen returns null for multiple-instance even if one exists", () => {
@@ -34,7 +34,7 @@ describe("panel-registry pure logic", () => {
   });
 
   test("applyFill validates and writes valid values", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} }) as Panel;
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} }) as Panel;
     p.data = {};
     const ok = applyFill(p, "deliveryDate", "2099-01-01");
     expect(ok.ok).toBe(true);
@@ -43,7 +43,7 @@ describe("panel-registry pure logic", () => {
   });
 
   test("applyFill rejects invalid values with an error message", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} }) as Panel;
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} }) as Panel;
     const bad = applyFill(p, "deliveryDate", "2020-01-01"); // past
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.error).toBeTruthy();
@@ -51,13 +51,13 @@ describe("panel-registry pure logic", () => {
   });
 
   test("applyFill rejects unknown fields", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} }) as Panel;
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} }) as Panel;
     const r = applyFill(p, "nonexistentField", "x");
     expect(r.ok).toBe(false);
   });
 
   test("validatePanel reports missing required + invalid", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} }) as Panel;
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} }) as Panel;
     p.data = { deliveryDate: "2020-01-01" }; // invalid date, missing requireds
     const v = validatePanel(p);
     expect(v.ok).toBe(false);
@@ -68,7 +68,7 @@ describe("panel-registry pure logic", () => {
   });
 
   test("validatePanel ok when all required present + valid", () => {
-    const p = createPanel("checkout", { kind: "dynamic", resolve: () => {} }) as Panel;
+    const p = createPanel("create-order", { kind: "dynamic", resolve: () => {} }) as Panel;
     p.data = {
       recipientName: "Amara", recipientPhone: "+94771234567", streetAddress: "5 Galle Rd",
       deliveryCity: "Galle", deliveryDate: "2099-01-01", senderName: "Kasun",

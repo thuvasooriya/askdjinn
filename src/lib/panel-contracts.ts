@@ -15,15 +15,19 @@ export type PanelType =
   | "products" | "conversation" | "cart" | "product-detail" | "sessions"
   | "orders" | "address-book" | "memories"
   // agent-driven dynamic panels
-  | "address-select" | "address-form" | "checkout"
+  | "address-select" | "address-form" | "create-order"
   | "wishlist" | "delivery-info" | "order-tracking";
 
 export const PANEL_TYPES: PanelType[] = [
   "products", "conversation", "cart", "product-detail", "sessions",
   "orders", "address-book", "memories",
-  "address-select", "address-form", "checkout",
+  "address-select", "address-form", "create-order",
   "wishlist", "delivery-info", "order-tracking",
 ];
+
+export function normalizePanelType(type: string): PanelType | null {
+  return PANEL_TYPES.includes(type as PanelType) ? type as PanelType : null;
+}
 
 export type AspectTier = "compact" | "portrait" | "landscape" | "square";
 
@@ -53,7 +57,7 @@ export interface PanelAction {
 
 export interface PanelContract {
   type: PanelType;
-  /** "single" = at most one open at a time (form collectors: checkout, address-select).
+  /** "single" = at most one open at a time (form collectors: create-order, address-select).
    *  "multiple" = many allowed (browse: product-detail, tracking). */
   instances: "single" | "multiple";
   /** Can fields be filled while open (drives `fillable` flag in the prompt + panel_fill_field). */
@@ -130,8 +134,8 @@ export const CONTRACTS: Record<PanelType, PanelContract> = {
       { key: "city", label: "City", type: "text", required: true },
     ],
   },
-  checkout: {
-    type: "checkout", instances: "single", fillable: true,
+  "create-order": {
+    type: "create-order", instances: "single", fillable: true,
     layoutPreference: ["portrait", "compact"], minWidth: 360, minHeight: 360, icon: "send",
     fields: [
       { key: "recipientName", label: "Recipient Name", type: "text", required: true },

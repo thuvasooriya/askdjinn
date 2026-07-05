@@ -13,6 +13,7 @@
   import { useLiveVoice } from "$lib/stores/live-voice.svelte";
   import { buildClientToolContext } from "$lib/ai/client-context";
   import { flyToCart } from "$lib/cart-animation";
+  import type { PanelType } from "$lib/panel-contracts";
   import HomeHero from "$lib/components/shell/HomeHero.svelte";
   import CanvasGrid from "$lib/components/shell/CanvasGrid.svelte";
   import FloatingResponse from "$lib/components/shell/FloatingResponse.svelte";
@@ -175,7 +176,7 @@
       <div class="order-banner bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-xl shadow-lg flex items-center gap-3 px-4 py-3">
         <div class="order-icon"><Check class="h-3.5 w-3.5" /></div>
         <span class="order-text">Order ready</span>
-        {#if ui.lastOrder.orderNumber}<span class="order-num font-mono text-[10px] text-[var(--color-muted-foreground)]">{ui.lastOrder.orderNumber}</span>{/if}
+        {#if ui.lastOrder.orderRef ?? ui.lastOrder.orderNumber}<span class="order-num font-mono text-[10px] text-[var(--color-muted-foreground)]">{ui.lastOrder.orderRef ?? ui.lastOrder.orderNumber}</span>{/if}
         <span class="flex-1"></span>
         {#if ui.lastOrder.paymentUrl}
           <a href={ui.lastOrder.paymentUrl} target="_blank" rel="noreferrer" class="order-pay flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-primary-foreground)] no-underline">Pay <ExternalLink class="h-3 w-3" /></a>
@@ -198,7 +199,7 @@
           onClose={(id) => ui.close(id)}
           onAddProduct={addProduct}
           onClickProduct={handleProductClick}
-          onCheckout={() => { ui.open("checkout" as any, { kind: "dynamic" }); }}
+          onCreateOrder={() => { ui.open("create-order" as PanelType, { kind: "dynamic" }); }}
           {liveActive}
         />
       {/if}

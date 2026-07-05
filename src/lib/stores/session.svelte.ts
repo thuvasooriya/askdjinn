@@ -26,11 +26,13 @@ export type BudgetRangePreference = { min?: number; max?: number };
 
 export interface OrderRecord {
   orderNumber: string;
+  orderRef?: string;
   paymentUrl?: string;
+  expiresAt?: string;
   createdAt: number;
   status?: string;
   statusDisplay?: string;
-  summary?: { itemsTotal?: number; deliveryFee?: number; grandTotal?: number; currency?: string };
+  summary?: { itemsTotal?: number; deliveryFee?: number; addonsTotal?: number; grandTotal?: number; currency?: string };
   tracking?: { step: string; timestamp?: string }[];
   amount?: { value: number; currency: string };
   recipient?: { name?: string; phone?: string; address?: string; city?: string };

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { proxiedSrc } from "$lib/image";
     import {
         Heart,
         Eye,
@@ -180,7 +181,7 @@
                             >
                                 {#if item.product.imageUrl && !imgErrors.has(item.product.id)}
                                     <img
-                                        src={item.product.imageUrl}
+                                        src={proxiedSrc(item.product.imageUrl)}
                                         alt={item.product.name}
                                         class="h-full w-full object-cover"
                                         loading="lazy"

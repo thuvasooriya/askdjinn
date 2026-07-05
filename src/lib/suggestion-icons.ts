@@ -29,7 +29,7 @@ export const SUGGESTION_ICON_HINTS: Record<SuggestionIconKey, string> = {
   heart: "liked items / wishlist",
   bell: "alerts / reminders / restocks",
   refresh: "refresh / retry / update",
-  cart: "cart / checkout / reorder",
+  cart: "cart / create-order / reorder",
 };
 
 // Defensive clamp: coerce any unknown value to a valid key. Used server-side

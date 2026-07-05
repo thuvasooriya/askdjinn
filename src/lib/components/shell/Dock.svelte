@@ -60,7 +60,7 @@
         "product-detail": Eye,
         lists: Heart,
         sessions: History,
-        checkout: Send,
+        "create-order": Send,
         "address-select": MapPin,
         "address-form": MapPin,
         "delivery-info": Truck,

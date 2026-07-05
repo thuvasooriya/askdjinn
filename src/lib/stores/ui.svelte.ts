@@ -77,7 +77,7 @@ export const defaultSearchCriteria: SearchCriteria = {
 
 class UIStore {
   /** UNIFIED PANEL REGISTRY — single source of truth for every open panel,
-   *  static (cart, lists, …) or dynamic (agent-created checkout, …).
+   *  static (cart, lists, …) or dynamic (agent-created create-order, …).
    *  Replaces the old `openPanels: Set<PanelId>` + `panels: DynamicPanel[]`. */
   panels = $state<Panel[]>([]);
   activePanelId = $state<string | null>(null);
@@ -142,7 +142,7 @@ class UIStore {
   askUser = $state<{ question: string; options: string[]; resolve: (answer: string) => void } | null>(null);
   debugChatOpen = $state(false);
   searchError = $state<string | null>(null);
-  lastOrder = $state<{ orderNumber?: string; paymentUrl?: string } | null>(null);
+  lastOrder = $state<{ orderNumber?: string; orderRef?: string; paymentUrl?: string; expiresAt?: string } | null>(null);
 
   // Chat is visible only when the conversation panel is actively rendered.
   // If the panel is closed or minimized, AppShell shows the floating AgentBar.
@@ -256,7 +256,7 @@ class UIStore {
     this.searchCriteria = persist.load<SearchCriteria>(SEARCH_STORE_ID, VERSION, { ...defaultSearchCriteria });
     this.searchThreads = persist.load<Array<{ id: string; query: string; products: Product[]; searchedAt?: number }>>(THREADS_STORE_ID, VERSION, []);
     const cachedProducts = persist.load<Product[]>(PRODUCT_CACHE_STORE_ID, VERSION, []);
-    this.lastOrder = persist.load<{ orderNumber?: string; paymentUrl?: string } | null>(ORDER_RESULT_STORE_ID, VERSION, null);
+    this.lastOrder = persist.load<{ orderNumber?: string; orderRef?: string; paymentUrl?: string; expiresAt?: string } | null>(ORDER_RESULT_STORE_ID, VERSION, null);
     const reg = new Map<string, Product>();
     for (const product of cachedProducts) reg.set(product.id, product);
     for (const thread of this.searchThreads) {
@@ -286,7 +286,7 @@ class UIStore {
     }
     // Drop expired panels on reload — they can never resolve and just clutter the UI.
     this.panels = hydrated
-      .filter(p => p.status !== "expired")
+      .filter(p => p.status !== "expired" && PANEL_TYPES.includes(p.type))
       .map(p => ({ ...p, resolve: undefined }));
     this.savePanels();
     // Restore the product-detail target only when its panel survived reload,
@@ -480,7 +480,7 @@ class UIStore {
   toggleDebugChat() {
     this.debugChatOpen = !this.debugChatOpen;
   }
-  setOrderResult(order: { orderNumber?: string; paymentUrl?: string }) {
+  setOrderResult(order: { orderNumber?: string; orderRef?: string; paymentUrl?: string; expiresAt?: string }) {
     this.lastOrder = order;
     persist.save(ORDER_RESULT_STORE_ID, VERSION, order);
   }

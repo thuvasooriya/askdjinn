@@ -1,4 +1,4 @@
-export * from "./checkout";
+export * from "./create-order";
 export * from "./delivery";
 export * from "./errors";
 export * from "./normalize";

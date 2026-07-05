@@ -3,7 +3,8 @@ render the click to pay link inline
 phantom products in search results
 inaccuracy of order information in summaries
 
-make the traffic lights smaller and move the expanded hover zone to a bit lower in all the panels
+thumbnail duplication in gallery overlay
+info card on gallery overlay
 
 create order consistency
 
@@ -58,4 +59,4 @@ create order consistency
 
 - [ ] how do we make the agent only recommend the products that are deliverable to the location the user wants and or or within the time that the user wants
 
-- [ ] how do we view the checkout link. can we view it inside a panel as well?
+- [ ] how do we view the payment link. can we view it inside a panel as well?
