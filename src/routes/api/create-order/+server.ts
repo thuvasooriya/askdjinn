@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { callMcpTool } from "$lib/server/mcp";
-import { normalizeOrder, validateCreateOrderDraft } from "$lib/shopping-engine";
-import type { CreateOrderDraft } from "$lib/shopping-engine";
+import { normalizeOrder } from "$lib/shopping-engine";
 import { todayISO } from "$lib/dates";
 import { checkRateLimit } from "$lib/server/rate-limiter";
 import { isAllowedOrigin, originErrorResponse } from "$lib/server/origin-guard";
@@ -45,19 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const parsed = createOrderSchema.safeParse(await request.json());
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid order details" }, { status: 400 });
     if (parsed.data.delivery.date < todayISO()) return Response.json({ error: "Delivery date cannot be in the past" }, { status: 400 });
-
     const body = parsed.data;
-    const draft: CreateOrderDraft = {
-      cartId: "active",
-      cart: body.cart.map((item) => ({ productId: item.product_id, quantity: item.quantity, icingText: item.icing_text ?? undefined })),
-      recipient: body.recipient,
-      delivery: { address: body.delivery.address, city: body.delivery.city, date: body.delivery.date, locationType: body.delivery.location_type, instructions: body.delivery.instructions ?? undefined },
-      sender: body.sender,
-      giftMessage: body.gift_message ?? undefined,
-      currency: body.currency,
-    };
-    const validated = validateCreateOrderDraft(draft);
-    if (!validated.ok) return Response.json({ error: validated.error.message }, { status: 400 });
 
     const raw = await callMcpTool("kapruka_create_order", body, 30_000);
     const normalized = normalizeOrder(raw);

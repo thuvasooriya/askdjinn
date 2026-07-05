@@ -21,8 +21,8 @@ export const GET: RequestHandler = async ({ request, url }) => {
     });
     const extracted = extractData(raw);
     if (!extracted.ok) return Response.json({ error: extracted.error.message, cities: [] }, { status: 502 });
-    const data = extracted.data as { cities?: unknown[] };
-    return Response.json({ cities: Array.isArray(data.cities) ? data.cities : [] });
+    const data = extracted.data as { cities?: Array<{ name: string; aliases: string[] }> };
+    return Response.json({ cities: Array.isArray(data?.cities) ? data.cities : [] });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load delivery cities";
     return Response.json({ error: message, cities: [] }, { status: 500 });

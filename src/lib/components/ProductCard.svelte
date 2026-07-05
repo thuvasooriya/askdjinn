@@ -30,7 +30,7 @@
   let highlightTextEl = $state<HTMLSpanElement | null>(null);
   let highlightTextOverflow = $state(false);
   let nameEl = $state<HTMLHeadingElement | null>(null);
-  let nameMeasureEl = $state<HTMLHeadingElement | null>(null);
+  let nameMeasureEl = $state<HTMLSpanElement | null>(null);
   let displayName = $state("");
 
   function handleClick() {

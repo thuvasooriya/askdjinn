@@ -274,18 +274,18 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_search: {
     name: "product_search",
-    description: "Search Kapruka's catalog by product NAME; results appear in the product grid automatically. The catalog matches words in product names, not concepts — keep `q` short and noun-focused (e.g. 'cake', 'smart watch', 'novel'); avoid 'trending'/'popular'/'best' which match nothing useful. For trending/bestsellers/new arrivals set `category` to 'bestsellers', 'newadditions', or 'promotions' rather than searching those words. A category may be used on its own. Do NOT use web_search to find products. Use this before recommending any product.",
+    description: "Search Kapruka's catalog by product NAME; results appear in the product grid automatically. Always prefer general search (no category filter) first using popular physical keywords (e.g. 'gift', 'hamper', 'chocolate', 'flowers', 'perfume'). The catalog matches literal substrings in product names — keep `q` short and noun-focused. Virtual category filters like 'bestsellers' or 'promotions' should only be used as secondary filters paired with a valid query `q` (e.g. q: 'chocolate', category: 'bestsellers'). If a search returns 0 results, autonomously retry by broadening the query, trying common synonyms, or dropping the category filter. Use this before recommending any product.",
     parameters: {
       type: "object",
       properties: {
-        q: param("string", "Search query. Can be empty if a category is provided."),
+        q: param("string", "Search query (minimum 3 characters). Matches literal substrings in product names. For category browsing, you must still provide a representative name keyword (e.g. query 'cake' for category 'cakes', or 'flower' for category 'flowers')."),
         category: param("string", "Optional category filter"),
         min_price: param("number", "Optional min price in LKR"),
         max_price: param("number", "Optional max price in LKR"),
         in_stock_only: param("boolean", "Filter for in stock products only"),
         limit: param("number", "Number of results (default 8, max 12)"),
       },
-      required: [],
+      required: ["q"],
     },
     ui: { icon: Search, label: "Searching Kapruka" },
     category: "shopping",
@@ -315,6 +315,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
         count: products.length,
         products: products.slice(0, 6).map(p => ({
           id: p.id, name: p.name, price: p.price, currency: p.currency,
+          inStock: p.inStock, stockLevel: p.stockLevel,
         })),
       };
     },
@@ -338,7 +339,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
       if (product) ctx.onRegisterProduct(product);
       return {
         product: product
-          ? { id: product.id, name: product.name, price: product.price, currency: product.currency, imageUrl: product.imageUrl, images: product.images, productUrl: product.productUrl }
+          ? { id: product.id, name: product.name, price: product.price, currency: product.currency, imageUrl: product.imageUrl, images: product.images, productUrl: product.productUrl, inStock: product.inStock, stockLevel: product.stockLevel }
           : null,
       };
     },
@@ -398,9 +399,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
     executeClient: async (args, ctx) => {
       const city = args.city as string;
       const dates = (args.dates as string[]) ?? [];
-
-      // Backward compat: support single delivery_date from old stored calls
-      const allDates = dates.length > 0 ? dates : (args.delivery_date ? [args.delivery_date as string] : []);
+      const allDates = dates.length > 0 ? dates : [];
       if (!allDates.length) return { city, rate: undefined, dates: [] };
 
       async function doCheck(c: string, dt: string) {
@@ -982,7 +981,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_list_categories: {
     name: "product_list_categories",
-    description: "List the product categories available in Kapruka's catalog to help target your search.",
+    description: "List the product categories available in Kapruka's catalog. Do NOT call this tool unless a general search returns nothing or the user explicitly asks to browse category names. Loading the category list is expensive and should be a last resort fallback.",
     parameters: {
       type: "object",
       properties: {

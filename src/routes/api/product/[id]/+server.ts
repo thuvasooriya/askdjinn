@@ -20,6 +20,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
       console.log("[djinn] kapruka_get_product raw:", JSON.stringify(raw, null, 2));
     }
     const normalized = normalizeProductDetail(raw);
+    if (!normalized.ok) return Response.json({ error: normalized.error.message, product: null }, { status: 502 });
     return Response.json(normalized.data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Product lookup failed";

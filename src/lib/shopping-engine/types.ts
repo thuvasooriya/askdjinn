@@ -54,15 +54,14 @@ export interface Product {
   restrictedCountries?: string[];
   variants?: ProductVariant[];
   attributes?: ProductAttributes;
-  deliveryAvailable?: boolean;
+  shipsFrom?: string;
 }
 
-/** Catalog category returned by browse or category search. */
+/** Catalog category node returned by kapruka_list_categories. */
 export interface Category {
-  id: string;
   name: string;
-  productCount?: number;
-  description?: string;
+  url?: string;
+  children?: Category[];
 }
 
 /** Cart item including quantity and optional price watch metadata. */
@@ -72,38 +71,6 @@ export interface CartItem {
   addedAt: number;
   watchPrice?: number;
   selectedVariantId?: string;
-}
-
-/** Named cart with local business rules and create-order hints. */
-export interface Cart {
-  id: string;
-  name: string;
-  items: CartItem[];
-  budget?: number;
-  autoPurchaseEnabled: boolean;
-  autoPurchaseLimit: number;
-  deliveryCity?: string;
-  deliveryDate?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-/** Product watch entry for price and stock monitoring. */
-export interface WatchItem {
-  productId: string;
-  product: Product;
-  targetPrice?: number;
-  watchStock: boolean;
-  cartId: string;
-  createdAt: number;
-}
-
-/** Multi-cart shopping workspace independent of React and storage. */
-export interface ShoppingWorkspace {
-  version: 1;
-  activeCartId: string;
-  carts: Cart[];
-  watchlist: WatchItem[];
 }
 
 /** Normalized product search response. */
@@ -118,12 +85,6 @@ export interface ProductDetailResult {
   type: "product_detail";
   product?: Product;
   rawText?: string;
-}
-
-/** Delivery city metadata. */
-export interface DeliveryCity {
-  name: string;
-  aliases?: string[];
 }
 
 /** Delivery availability and pricing response. */
@@ -141,6 +102,7 @@ export interface DeliveryCheck {
   deliveryWindow?: string;
   reason?: string;
   nextAvailableDate?: string;
+  perishableWarning?: string;
   rawText?: string;
 }
 
@@ -202,6 +164,14 @@ export interface TrackingStep {
   timestamp?: string;
 }
 
+/** One item in a tracking result. Mirrors KaprukaTrackingItem. */
+export interface TrackingItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  sellingPrice: number;
+}
+
 /** Normalized order tracking response. */
 export interface TrackingResult {
   type: "tracking";
@@ -214,21 +184,15 @@ export interface TrackingResult {
   progress?: TrackingStep[];
   hasDeliveryVideo?: boolean;
   hasDeliveryPhoto?: boolean;
-  items?: string[];
+  items?: TrackingItem[];
   amount?: { value: number; currency: string };
   paymentMethod?: string;
   comments?: string;
   greetingMessage?: string;
   specialInstructions?: string;
   pnref?: string;
+  liveTrackingAvailable?: boolean;
   recipient?: { name?: string; phone?: string; address?: string; city?: string };
   rawText?: string;
 }
 
-/** Sri Lankan occasion metadata used for recommendations. */
-export interface Occasion {
-  name: string;
-  date: string;
-  category: "cultural" | "religious" | "family" | "romantic" | "seasonal";
-  description: string;
-}

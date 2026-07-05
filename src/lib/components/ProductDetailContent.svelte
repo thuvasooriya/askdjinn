@@ -68,7 +68,7 @@
   );
 
   const hasDiscount = $derived(
-    product?.compareAtPrice != null && product.compareAtPrice > (product.price ?? 0)
+    !selectedVariantId && product?.compareAtPrice != null && product.compareAtPrice > (product.price ?? 0)
   );
   const discountPercent = $derived.by(() => {
     if (!hasDiscount || !product?.compareAtPrice || !product?.price) return 0;
@@ -87,6 +87,13 @@
     // merge them — that was causing the duplicated first frame.
     const base = product.images?.length ? product.images : (product.imageUrl ? [product.imageUrl] : []);
     return [...new Set(variantImg ? [variantImg, ...base] : base)];
+  });
+  const displayAttributes = $derived.by(() => {
+    if (!product) return null;
+    const base = product.attributes ?? {};
+    const variantAttrs = selectedVariant?.attributes ?? {};
+    const merged = { ...base, ...variantAttrs };
+    return Object.keys(merged).length ? merged : null;
   });
 
   const breadcrumb = $derived.by<string[]>(() => {
@@ -195,7 +202,9 @@
   }
 
   function capitalize(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    const spaced = s.replace(/[_-]/g, " ").replace(/([A-Z])/g, " $1");
+    const clean = spaced.trim().replace(/\s+/g, " ");
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
   }
 
   function sentenceCase(s: string): string {
@@ -310,6 +319,9 @@
           {/if}
 
           <h2 class="product-name">{product.name}</h2>
+          {#if product.summary && product.summary !== product.description}
+            <p class="product-summary">{product.summary}</p>
+          {/if}
 
           {#if product.rating && product.rating > 0}
             <div class="rating-row">
@@ -360,10 +372,10 @@
                 Global Shipping
               </span>
             {/if}
-            {#if product.deliveryAvailable === true}
+            {#if product.shipsFrom}
               <span class="chip chip-neutral">
-                <Truck class="chip-icon" />
-                Delivery Available
+                <Globe class="chip-icon" />
+                Ships from {product.shipsFrom.toUpperCase()}
               </span>
             {/if}
           </div>
@@ -381,12 +393,12 @@
           </details>
         {/if}
 
-        {#if product.attributes}
+        {#if displayAttributes}
           <div class="section">
             <div class="section-content">
               <div class="attrs-grid">
-                {#each Object.entries(product.attributes) as [key, value]}
-                  {#if value != null && value !== '' && !(key === 'subtype' && (product.attributes?.type ?? '').toLowerCase() === value.toLowerCase())}
+                {#each Object.entries(displayAttributes) as [key, value]}
+                  {#if value != null && value !== '' && !(key === 'subtype' && (displayAttributes.type ?? '').toLowerCase() === value.toLowerCase())}
                     <span class="attr-label">{capitalize(key)}</span>
                     <span class="attr-value">{sentenceCase(value)}</span>
                   {/if}
@@ -432,6 +444,13 @@
           <div class="section-card">
             <h3 class="section-card-title">Description</h3>
             <p class="desc-text">{product.description}</p>
+          </div>
+        {/if}
+
+        {#if product.restrictedCountries && product.restrictedCountries.length > 0}
+          <div class="section-card warning-card">
+            <h3 class="section-card-title warning-title">Shipping Restrictions</h3>
+            <p class="desc-text">This product cannot be shipped to: {product.restrictedCountries.join(', ')}</p>
           </div>
         {/if}
         </div>
@@ -804,6 +823,13 @@
     color: var(--color-foreground);
     margin: 0;
   }
+  .product-summary {
+    font-size: var(--fs-md);
+    line-height: 1.4;
+    color: var(--color-muted-foreground);
+    margin: 0.375rem 0 0;
+    font-weight: 500;
+  }
 
   .rating-row {
     display: flex;
@@ -925,8 +951,6 @@
   }
 
   /* ── Collapsible Sections ── */
-  .section {
-  }
 
   .section-summary {
     display: flex;
@@ -1014,6 +1038,13 @@
     letter-spacing: 0.04em;
     color: var(--color-muted-foreground);
     margin: 0.5rem 0;
+  }
+  .warning-card {
+    border-color: color-mix(in srgb, var(--color-destructive) 40%, var(--color-border));
+    background: color-mix(in srgb, var(--color-destructive) 5%, transparent);
+  }
+  .warning-title {
+    color: var(--color-destructive);
   }
 
   /* ── Attributes Table ── */
