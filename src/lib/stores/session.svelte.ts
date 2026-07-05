@@ -3,6 +3,7 @@
 
 import * as persist from "$lib/stores/persistence";
 import { useProfile } from "$lib/stores/profile.svelte";
+import type { CreateOrderPayload } from "$lib/order/create-order-client";
 
 const STORE_ID = "session";
 const VERSION = 1;
@@ -29,6 +30,16 @@ export type TrackingStep = { step: string; timestamp?: string };
 export type MoneyAmount = { value: number; currency: string };
 export type OrderRecipient = { name?: string; phone?: string; address?: string; city?: string };
 
+// Lightweight cart snapshot saved with created orders for retry/edit.
+export type CartSnapshotItem = {
+  productId: string;
+  name: string;
+  price?: number;
+  currency?: string;
+  quantity: number;
+  imageUrl?: string;
+};
+
 export interface CreatedOrderRecord {
   kind: "created";
   id: string;
@@ -40,6 +51,8 @@ export interface CreatedOrderRecord {
   statusDisplay: string;
   summary?: OrderSummary;
   lastCheckedAt: 0;
+  payload?: CreateOrderPayload;
+  cartSnapshot?: CartSnapshotItem[];
 }
 
 export interface CompletedOrderRecord {
@@ -124,9 +137,11 @@ function normalizeOrderRecord(value: unknown): OrderRecord | null {
       expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : undefined,
       createdAt,
       status: order.status === "payment_expired" ? "payment_expired" : "pending_payment",
-      statusDisplay: typeof order.statusDisplay === "string" ? order.statusDisplay : "Payment pending",
+      statusDisplay: typeof order.statusDisplay === "string" ? order.statusDisplay : "Pending",
       summary: order.summary && typeof order.summary === "object" ? order.summary as OrderSummary : undefined,
       lastCheckedAt: 0,
+      payload: order.payload && typeof order.payload === "object" ? order.payload as CreateOrderPayload : undefined,
+      cartSnapshot: Array.isArray(order.cartSnapshot) ? order.cartSnapshot as CartSnapshotItem[] : undefined,
     };
   }
 
@@ -166,7 +181,7 @@ function normalizeOrderRecord(value: unknown): OrderRecord | null {
       expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : undefined,
       createdAt,
       status: "pending_payment",
-      statusDisplay: "Payment pending",
+      statusDisplay: "Pending",
       summary: order.summary && typeof order.summary === "object" ? order.summary as OrderSummary : undefined,
       lastCheckedAt: 0,
     };

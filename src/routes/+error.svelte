@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { Sparkles } from "@lucide/svelte";
 </script>
@@ -12,8 +13,8 @@
     {page.error?.message ?? "An unexpected error occurred. Please reload the page."}
   </p>
   <a
-    href="/"
-    class="mt-6 inline-flex items-center gap-2 rounded-xl gradient-primary px-6 py-3 text-sm font-bold text-[var(--color-primary-foreground)] shadow-glow transition hover:shadow-lg active:scale-95"
+    href={resolve("/")}
+    class="mt-6 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold transition active:scale-95 frosted-primary"
   >
     <Sparkles class="h-4 w-4" /> Reload
   </a>

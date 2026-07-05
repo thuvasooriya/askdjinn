@@ -1,21 +1,3 @@
-<script lang="ts" module>
-    import { tv } from "tailwind-variants";
-
-    export const confirmButtonVariants = tv({
-        base: "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] active:scale-[0.97] cursor-pointer",
-        variants: {
-            variant: {
-                default:
-                    "gradient-primary text-[var(--color-primary-foreground)] shadow-float hover:shadow-glow",
-                destructive:
-                    "bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)] hover:opacity-90",
-                cancel: "bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-elevated)]",
-            },
-        },
-        defaultVariants: { variant: "default" },
-    });
-</script>
-
 <script lang="ts">
     // ConfirmDialog: reusable "are you sure?" prompt for destructive or
     // otherwise irreversible actions (clear all data, delete account, etc).
@@ -24,6 +6,7 @@
     import { AlertDialog } from "bits-ui";
     import { AlertTriangle } from "@lucide/svelte";
     import { cn } from "$lib/utils";
+    import { buttonVariants } from "$lib/ui/Button.svelte";
 
     let {
         open = $bindable(false),
@@ -84,13 +67,13 @@
             </div>
             <div class="mt-5 flex justify-end gap-2">
                 <AlertDialog.Cancel
-                    class={confirmButtonVariants({ variant: "cancel" })}
+                    class={buttonVariants({ variant: "secondary", size: "md" })}
                 >
                     {cancelLabel}
                 </AlertDialog.Cancel>
                 <button
                     type="button"
-                    class={confirmButtonVariants({ variant })}
+                    class={buttonVariants({ variant: variant === "destructive" ? "destructive" : "primary", size: "md" })}
                     onclick={confirm}
                 >
                     {confirmLabel}

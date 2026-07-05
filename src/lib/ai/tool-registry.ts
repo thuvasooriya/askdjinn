@@ -11,10 +11,10 @@
  * (see client-context.ts). The server is a thin schemas-only stream proxy.
  */
 
-import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Clock, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare } from "@lucide/svelte";
+import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Clock, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare, PhoneOff } from "@lucide/svelte";
 import type { LlmTool } from "$lib/llm-engine";
-import type { CompletedOrderRecord, OrderRecord } from "$lib/stores/session.svelte";
-import { createOrder, type CreatedOrder } from "$lib/order/create-order-client";
+import type { CompletedOrderRecord, CreatedOrderRecord, OrderRecord } from "$lib/stores/session.svelte";
+import { createOrder, type CreatedOrder, type CreateOrderPayload } from "$lib/order/create-order-client";
 import type { Product } from "$lib/shopping-engine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,6 +58,9 @@ function hasOrderTrackingCache(order: CompletedOrderRecord | undefined): boolean
   );
 }
 
+let orderCreateInFlight = false;
+
+
 export type ToolParam = ReturnType<typeof param>;
 
 export interface ToolDefinition {
@@ -96,7 +99,8 @@ export interface ClientToolContext {
   onUpdateCartQuantity: (productId: string, quantity: number) => void;
   onGetCartContents: () => Array<{ id: string; name: string; price?: number; quantity: number }>;
   onAskUser: (question: string, options: string[]) => Promise<string>;
-  onOrderCreated: (order: CreatedOrder) => void;
+  onAutoDismissAskUser: () => void;
+  onOrderCreated: (order: CreatedOrder, payload?: CreateOrderPayload) => void;
   onSetDeliveryEstimate: (estimate: { city: string; rate: number; currency: string; estimatedDate?: string } | null) => void;
   onGetCompletedOrderRecord: (orderNumber: string) => CompletedOrderRecord | undefined;
   onGetOrderRecords: () => OrderRecord[];
@@ -293,74 +297,109 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   cart_add: {
     name: "cart_add",
-    description: "Add a known product to the user's shopping cart by product_id. Use the product_id from product_search results, highlighted products, or visible product context; do not repeat a search before adding a product that is already visible or cached.",
+    description: "Add one or more known products to the user's shopping cart in a single call. Provide items as an array of product IDs with optional quantities. Use product_ids from product_search results, highlighted products, or visible product context; do not repeat a search before adding products that are already visible or cached.",
     parameters: {
       type: "object",
       properties: {
-        product_id: param("string", "Product ID to add to cart"),
-        quantity: param("number", "Quantity to add (default 1)", { default: 1, minimum: 1, maximum: 99 }),
+        items: param("array", "Products to add to cart", {
+          items: {
+            type: "object",
+            properties: {
+              product_id: { type: "string", description: "Product ID to add to cart" },
+              quantity: { type: "number", description: "Quantity to add (default 1)", default: 1, minimum: 1, maximum: 99 },
+            },
+            required: ["product_id"],
+          },
+        }),
       },
-      required: ["product_id"],
+      required: ["items"],
     },
     ui: { icon: Plus, label: "Adding to cart" },
     category: "shopping",
     executeClient: async (args, ctx) => {
-      const added = ctx.onAddToCart(args.product_id as string, (args.quantity as number) ?? 1);
-      if (!added) return { added: false, error: `Product ${args.product_id} not found. Search for products first.` };
-      return { added: true, product_id: args.product_id, quantity: args.quantity ?? 1 };
+      const items = args.items as Array<{ product_id: string; quantity?: number }>;
+      if (!items || !items.length) return { added: false, error: "No items provided." };
+      const results: Array<{ product_id: string; quantity: number; added: boolean }> = [];
+      for (const { product_id, quantity } of items) {
+        const q = quantity ?? 1;
+        const added = ctx.onAddToCart(product_id, q);
+        results.push({ product_id, quantity: q, added });
+      }
+      const failCount = results.filter(r => !r.added).length;
+      if (failCount === results.length) {
+        return { added: false, error: "No products found. Search for products first.", results };
+      }
+      return { added: true, results, partial: failCount > 0 };
     },
   },
 
   delivery_check: {
     name: "delivery_check",
-    description: "Check delivery availability for a city and date. Delivery info appears in a panel automatically.",
+    description: "Check delivery availability for one or more dates in a city. Supports the delivery info panel automatically when available.",
     parameters: {
       type: "object",
       properties: {
-        city: param("string", "Delivery city"),
-        delivery_date: param("string", "Date in YYYY-MM-DD format"),
+        city: param("string", "Delivery city or town name"),
+        dates: param("array", "Dates to check in YYYY-MM-DD format (e.g. [\"2026-05-13\", \"2026-05-14\"])", { items: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" } }),
       },
-      required: ["city"],
+      required: ["city", "dates"],
     },
     ui: { icon: Truck, label: "Checking delivery" },
     category: "shopping",
     executeClient: async (args, ctx) => {
       const city = args.city as string;
-      const deliveryDate = args.delivery_date ?? null;
+      const dates = (args.dates as string[]) ?? [];
 
-      async function doCheck(c: string) {
+      // Backward compat: support single delivery_date from old stored calls
+      const allDates = dates.length > 0 ? dates : (args.delivery_date ? [args.delivery_date as string] : []);
+      if (!allDates.length) return { city, rate: undefined, dates: [] };
+
+      async function doCheck(c: string, dt: string) {
         return fetchJsonResponse("/api/check-delivery", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ city: c, delivery_date: deliveryDate }),
+          body: JSON.stringify({ city: c, delivery_date: dt }),
         }, "Check delivery");
       }
 
-      let { res, data } = await doCheck(city);
-      const warning = typeof data.warning === "string" ? data.warning : "";
+      const results: Array<{ date: string; available: boolean }> = [];
+      let resolvedCity = city;
+      let currentRate: number | undefined;
 
-      if (!res.ok || (data.available === false && /unknown city|city_not_found/i.test(warning))) {
-        try {
-          const cityData = await fetchJson(`/api/delivery-cities?q=${encodeURIComponent(city)}&limit=1`, {}, "Search delivery cities");
-          const exactCity = (cityData.cities as Array<{ name?: string }> | undefined)?.[0]?.name;
-          if (exactCity && exactCity !== city) {
-            ({ res, data } = await doCheck(exactCity));
+      for (const dt of allDates) {
+        let { res, data } = await doCheck(resolvedCity, dt);
+        const warning = typeof data.warning === "string" ? data.warning : "";
+
+        if (!res.ok || (data.available === false && /unknown city|city_not_found/i.test(warning))) {
+          if (resolvedCity === city) {
+            try {
+              const cityData = await fetchJson(`/api/delivery-cities?q=${encodeURIComponent(city)}&limit=1`, {}, "Search delivery cities");
+              const exactCity = (cityData.cities as Array<{ name?: string }> | undefined)?.[0]?.name;
+              if (exactCity && exactCity !== city) {
+                resolvedCity = exactCity;
+                ({ res, data } = await doCheck(resolvedCity, dt));
+              }
+            } catch { /* fall through with original data */ }
           }
-        } catch { /* fall through with original data */ }
+        }
+
+        if (!res.ok) {
+          results.push({ date: dt, available: false });
+        } else {
+          results.push({ date: dt, available: data.available !== false });
+          if (typeof data.rate === "number" && currentRate == null) {
+            currentRate = data.rate;
+          }
+        }
       }
 
-      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Failed");
-      const normalized = {
-        city: typeof data.city === "string" ? data.city : city,
-        available: data.available !== false,
-        rate: typeof data.rate === "number" ? data.rate : undefined,
-      };
-      if (normalized.available && normalized.rate != null) {
-        ctx.onSetDeliveryEstimate({ city: normalized.city, rate: normalized.rate, currency: "LKR" });
+      if (currentRate != null) {
+        ctx.onSetDeliveryEstimate({ city: resolvedCity, rate: currentRate, currency: "LKR" });
       } else {
         ctx.onSetDeliveryEstimate(null);
       }
-      return normalized;
+
+      return { city: resolvedCity, rate: currentRate, dates: results };
     },
   },
 
@@ -383,27 +422,36 @@ export const TOOLS: Record<string, ToolDefinition> = {
         }),
         recipient_name: param("string", "Recipient's name"),
         recipient_phone: param("string", "Recipient's Sri Lankan phone number"),
-        delivery_address: param("string", "Delivery street address"),
+        street_address: param("string", "Delivery street address"),
         delivery_city: param("string", "Delivery city"),
         delivery_date: param("string", "Date in YYYY-MM-DD format"),
         sender_name: param("string", "Sender's name"),
         gift_message: param("string", "Optional gift card message (max 300 chars)"),
       },
-      required: ["cart", "recipient_name", "recipient_phone", "delivery_address", "delivery_city", "delivery_date", "sender_name"],
+      required: ["cart", "recipient_name", "recipient_phone", "street_address", "delivery_city", "delivery_date", "sender_name"],
     },
     ui: { icon: Send, label: "Creating order" },
     category: "shopping",
     executeClient: async (args, ctx) => {
-      const data = await createOrder({
-        cart: args.cart as Array<{ product_id: string; quantity: number; icing_text?: string | null }>,
-        recipient: { name: args.recipient_name as string, phone: args.recipient_phone as string },
-        delivery: { address: args.delivery_address as string, city: args.delivery_city as string, date: args.delivery_date as string },
-        sender: { name: args.sender_name as string },
-        gift_message: (args.gift_message as string | null | undefined) ?? null,
-      });
-      const order = data as CreatedOrder;
-      if (order.orderRef || order.orderNumber || order.paymentUrl) ctx.onOrderCreated(order);
-      return data as unknown as Record<string, unknown>;
+      if (orderCreateInFlight) {
+        throw new Error("Order creation is already in progress. Wait for it to finish before retrying.");
+      }
+      orderCreateInFlight = true;
+      try {
+        const payload: CreateOrderPayload = {
+          cart: args.cart as Array<{ product_id: string; quantity: number; icing_text?: string | null }>,
+          recipient: { name: args.recipient_name as string, phone: args.recipient_phone as string },
+          delivery: { address: args.street_address as string, city: args.delivery_city as string, date: args.delivery_date as string },
+          sender: { name: args.sender_name as string },
+          gift_message: (args.gift_message as string | null | undefined) ?? null,
+        };
+        const data = await createOrder(payload);
+        const order = data as CreatedOrder;
+        if (order.orderRef || order.orderNumber || order.paymentUrl) ctx.onOrderCreated(order, payload);
+        return data as unknown as Record<string, unknown>;
+      } finally {
+        orderCreateInFlight = false;
+      }
     },
   },
 
@@ -724,12 +772,12 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   ui_ask_user: {
     name: "ui_ask_user",
-    description: "Prompt the user with a multiple-choice question in a modal dialog. Use this when you need a clear decision (e.g. choosing between options, confirming preferences). Faster and more reliable than asking in free text. The response is the selected option string.",
+    description: "Show a multiple-choice question modal for the user. Provide 2-5 options for quick tap; the modal also has a text field for custom answers. The user can tap an option OR type their own. In voice mode, say the question aloud — the modal is a visual aid. If the user answers by voice instead of tapping, call ui_dismiss_ask_user to close the modal.",
     parameters: {
       type: "object",
       properties: {
         question: param("string", "The question to ask the user"),
-        options: param("array", "2-5 answer choices", {
+        options: param("array", "2-5 answer choices (the modal also shows a text input for custom answers)", {
           items: { type: "string" },
           minItems: 2,
           maxItems: 5,
@@ -744,6 +792,22 @@ export const TOOLS: Record<string, ToolDefinition> = {
       const options = args.options as string[];
       const answer = await ctx.onAskUser(question, options);
       return { question, selectedAnswer: answer };
+    },
+  },
+
+  ui_dismiss_ask_user: {
+    name: "ui_dismiss_ask_user",
+    description: "Dismiss the active question modal. Call this when the user answered by voice and the modal is no longer needed.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    ui: { icon: X, label: "Dismissing question" },
+    category: "ui",
+    executeClient: async (_args, ctx) => {
+      ctx.onAutoDismissAskUser();
+      return { dismissed: true };
     },
   },
 
@@ -906,7 +970,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   order_list: {
     name: "order_list",
-    description: "List known created click-to-pay orders and completed trackable orders separately. Created orders have payment links and expiry times; completed orders have tracking status and delivery details.",
+    description: "List known created click-to-pay orders and completed trackable orders separately. Created orders include saved payload/cart snapshots when available so the agent can explain whether retry/edit is possible.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: Package, label: "Listing orders" },
     category: "shopping",
@@ -914,11 +978,43 @@ export const TOOLS: Record<string, ToolDefinition> = {
       const records = ctx.onGetOrderRecords();
       return {
         createdOrders: records
-          .filter((r): r is Extract<OrderRecord, { kind: "created" }> => r.kind === "created")
-          .map(r => ({ kind: r.kind, orderRef: r.orderRef, paymentUrl: r.paymentUrl, expiresAt: r.expiresAt, status: r.status, statusDisplay: r.statusDisplay, summary: r.summary })),
+          .filter((r): r is CreatedOrderRecord => r.kind === "created")
+          .map(r => ({ kind: r.kind, orderRef: r.orderRef, paymentUrl: r.paymentUrl, expiresAt: r.expiresAt, status: r.status, statusDisplay: r.statusDisplay, summary: r.summary, payload: r.payload, cartSnapshot: r.cartSnapshot })),
         completedOrders: records
           .filter((r): r is CompletedOrderRecord => r.kind === "completed")
           .map(r => ({ kind: r.kind, orderNumber: r.orderNumber, status: r.status, statusDisplay: r.statusDisplay, amount: r.amount, deliveryDate: r.deliveryDate, lastCheckedAt: r.lastCheckedAt })),
+      };
+    },
+  },
+
+  order_get_created: {
+    name: "order_get_created",
+    description: "Fetch saved details for one created click-to-pay order by reference. Use this before helping the user review, edit, or retry a created order. This only reads saved data; it does not create a new order or payment link.",
+    parameters: {
+      type: "object",
+      properties: {
+        order_ref: param("string", "Created click-to-pay order reference"),
+      },
+      required: ["order_ref"],
+    },
+    ui: { icon: Package, label: "Loading order details" },
+    category: "shopping",
+    executeClient: async (args, ctx) => {
+      const orderRef = String(args.order_ref ?? "").trim();
+      const record = ctx.onGetOrderRecords().find((r): r is CreatedOrderRecord => r.kind === "created" && r.orderRef === orderRef);
+      if (!record) return { found: false, orderRef, error: "Created order not found" };
+      return {
+        found: true,
+        kind: record.kind,
+        orderRef: record.orderRef,
+        paymentUrl: record.paymentUrl,
+        expiresAt: record.expiresAt,
+        status: record.status,
+        statusDisplay: record.statusDisplay,
+        summary: record.summary,
+        payload: record.payload,
+        cartSnapshot: record.cartSnapshot,
+        retryAvailable: Boolean(record.payload && record.cartSnapshot?.length),
       };
     },
   },
@@ -996,6 +1092,21 @@ export const TOOLS: Record<string, ToolDefinition> = {
       return { set: true };
     },
   },
+
+  live_end_session: {
+    name: "live_end_session",
+    description: "Gracefully end the live voice session. Call this when the conversation is naturally complete — after confirming an order, answering the last question, or when the user indicates they're done. This closes the voice connection. Use only in live voice mode.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    ui: { icon: PhoneOff, label: "Ending call" },
+    category: "ui",
+    executeClient: async () => {
+      return { ended: true };
+    },
+  },
 };
 
 // ── Derived Exports ───────────────────────────────────────────────────────────
@@ -1010,7 +1121,7 @@ export const UI_ONLY_TOOLS = new Set(
 
 /** Tools that cannot run in text mode (they need a live client round-trip the
  *  streaming chat cannot provide). ui_ask_user -> LLM asks in plain text instead. */
-const TEXT_MODE_EXCLUDED = new Set(["ui_ask_user"]);
+const TEXT_MODE_EXCLUDED = new Set(["ui_ask_user", "live_end_session"]);
 
 /**
  * Schemas-only tool definitions for text mode. NO `execute` -- the server is a
@@ -1105,8 +1216,13 @@ export function summarizeToolCall(
       return { summary: p ? `Loaded product ${p.id ?? ""}`.trim() : "Product not found" };
     }
     case "cart_add": {
-      const q = args.quantity ?? 1;
-      return { summary: ok && response.added !== false ? `Added to cart ×${q}` : "Cart add failed", detail: `product ${args.product_id}` };
+      const results = response.results as Array<{ product_id: string; quantity: number; added: boolean }> | undefined;
+      if (!results) {
+        // backward compat: old single-product format
+        return { summary: ok && response.added !== false ? "Added to cart ×1" : "Cart add failed", detail: "product" };
+      }
+      const okCount = results.filter(r => r.added).length;
+      return { summary: ok && okCount > 0 ? `Added ${okCount} product${okCount !== 1 ? "s" : ""} to cart` : "Cart add failed", detail: `${okCount}/${results.length} items` };
     }
     case "cart_remove":
       return { summary: "Removed from cart", detail: `product ${args.product_id}` };
@@ -1114,8 +1230,18 @@ export function summarizeToolCall(
       return { summary: `Set quantity to ${args.quantity ?? 0}`, detail: `product ${args.product_id}` };
     case "cart_get_contents":
       return { summary: `Read cart (${response.count ?? 0} items)` };
-    case "delivery_check":
-      return { summary: response.available === false ? "Delivery unavailable" : "Delivery available", detail: `${response.city ?? args.city}` };
+    case "delivery_check": {
+      const dates = response.dates as Array<{ date: string; available: boolean }> | undefined;
+      // backward compat: old single-date format
+      if (typeof response.available === "boolean") {
+        return { summary: response.available === false ? "Delivery unavailable" : "Delivery available", detail: `${response.city ?? args.city}` };
+      }
+      if (!dates || !dates.length) return { summary: "No delivery dates checked" };
+      const availCount = dates.filter(d => d.available).length;
+      if (availCount === 0) return { summary: "Delivery unavailable", detail: `${response.city ?? args.city}` };
+      if (availCount === dates.length) return { summary: "Delivery available", detail: `${response.city ?? args.city} (all ${dates.length} dates)` };
+      return { summary: `Delivery: ${availCount}/${dates.length} available`, detail: `${response.city ?? args.city}` };
+    }
     case "order_create":
       return { summary: ok ? "Order created" : "Order creation failed", detail: response.orderRef || response.orderNumber ? `ref ${response.orderRef ?? response.orderNumber}` : undefined };
     case "order_track":
@@ -1150,6 +1276,8 @@ export function summarizeToolCall(
       return { summary: `Read highlights (${response.count ?? 0})` };
     case "ui_ask_user":
       return { summary: response.selectedAnswer ? `Asked → "${response.selectedAnswer}"` : "Asked a question" };
+    case "ui_dismiss_ask_user":
+      return { summary: "Dismissed question" };
     case "panel_open":
       return { summary: `Opened ${args.type as string}`, detail: response.id as string };
     case "panel_close":
@@ -1176,6 +1304,8 @@ export function summarizeToolCall(
       return { summary: ok ? `Saved address ${args.label ?? ""}` : "Save failed" };
     case "address_remove":
       return { summary: "Removed address" };
+    case "live_end_session":
+      return { summary: "Ended live session" };
     case "address_set_default":
       return { summary: "Set default address" };
     default:

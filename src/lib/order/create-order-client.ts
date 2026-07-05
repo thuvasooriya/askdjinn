@@ -1,4 +1,4 @@
-import type { CreatedOrderRecord } from "$lib/stores/session.svelte";
+import type { CreatedOrderRecord, CartSnapshotItem } from "$lib/stores/session.svelte";
 import type { OrderResult } from "$lib/shopping-engine";
 
 export type CreateOrderLineItem = {
@@ -24,18 +24,37 @@ export type CreateOrderPayload = {
 
 export type CreatedOrder = OrderResult;
 
+const CREATE_ORDER_TIMEOUT_MS = 35_000;
+
+
 export async function createOrder(payload: CreateOrderPayload): Promise<CreatedOrder> {
-  const res = await fetch("/api/create-order", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Failed to create order");
-  return data as CreatedOrder;
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), CREATE_ORDER_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) throw new Error(data.error ?? "Failed to create order");
+    return data as CreatedOrder;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Order creation timed out. Check Orders before retrying, because a payment link may still have been created upstream.");
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
-export function createOrderRecord(order: CreatedOrder): CreatedOrderRecord | null {
+export function createOrderRecord(
+  order: CreatedOrder,
+  payload?: CreateOrderPayload,
+  cartSnapshot?: CartSnapshotItem[],
+): CreatedOrderRecord | null {
   const orderRef = order.orderRef ?? order.orderNumber;
   if (!orderRef) return null;
   return {
@@ -47,7 +66,9 @@ export function createOrderRecord(order: CreatedOrder): CreatedOrderRecord | nul
     createdAt: Date.now(),
     lastCheckedAt: 0,
     status: "pending_payment",
-    statusDisplay: "Payment pending",
+    statusDisplay: "Pending",
     summary: order.summary,
+    payload,
+    cartSnapshot,
   };
 }

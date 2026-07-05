@@ -109,11 +109,9 @@
         expanded = false;
     }
 
-    function activate(panel: Panel, e: MouseEvent) {
+    function activate(panel: Panel, _e: MouseEvent) {
         if (panel.minimized) ui.restore(panel.id);
         else ui.focus(panel.id);
-        if (panel.type === "cart")
-            onCartClick?.(e.currentTarget as HTMLElement);
         collapse();
     }
 
@@ -227,7 +225,7 @@
                     role="menuitemcheckbox"
                     aria-checked={ui.isOpen("wishlist")}
                     onclick={() => {
-                        ui.togglePanel("wishlist" as never);
+                        ui.togglePanelVisibility("wishlist" as never);
                         collapse();
                     }}
                 >
@@ -237,25 +235,11 @@
                 <button
                     type="button"
                     class="dropdown-item"
-                    class:dropdown-item--active={ui.isOpen("sessions")}
-                    role="menuitemcheckbox"
-                    aria-checked={ui.isOpen("sessions")}
-                    onclick={() => {
-                        ui.togglePanel("sessions" as never);
-                        collapse();
-                    }}
-                >
-                    <History class="h-4 w-4" />
-                    <span class="flex-1">Session History</span>
-                </button>
-                <button
-                    type="button"
-                    class="dropdown-item"
                     class:dropdown-item--active={ui.isOpen("orders")}
                     role="menuitemcheckbox"
                     aria-checked={ui.isOpen("orders")}
                     onclick={() => {
-                        ui.togglePanel("orders" as never);
+                        ui.togglePanelVisibility("orders" as never);
                         collapse();
                     }}
                 >
@@ -269,7 +253,7 @@
                     role="menuitemcheckbox"
                     aria-checked={ui.isOpen("address-book")}
                     onclick={() => {
-                        ui.togglePanel("address-book" as never);
+                        ui.togglePanelVisibility("address-book" as never);
                         collapse();
                     }}
                 >
@@ -283,7 +267,7 @@
                     role="menuitemcheckbox"
                     aria-checked={ui.isOpen("memories")}
                     onclick={() => {
-                        ui.togglePanel("memories" as never);
+                        ui.togglePanelVisibility("memories" as never);
                         collapse();
                     }}
                 >
@@ -315,6 +299,21 @@
                     <MessageSquare class="h-4 w-4" />
                     <span class="flex-1">Chat</span>
                 </button>
+                <button
+                    type="button"
+                    class="dropdown-item"
+                    class:dropdown-item--active={ui.isOpen("sessions")}
+                    role="menuitemcheckbox"
+                    aria-checked={ui.isOpen("sessions")}
+                    onclick={() => {
+                        ui.togglePanelVisibility("sessions" as never);
+                        collapse();
+                    }}
+                >
+                    <History class="h-4 w-4" />
+                    <span class="flex-1">Session History</span>
+                </button>
+                <div class="dropdown-sep"></div>
                 <button
                     type="button"
                     class="dropdown-item"

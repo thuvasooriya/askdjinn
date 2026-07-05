@@ -11,6 +11,7 @@ import { useCart } from "$lib/stores/cart.svelte";
 import { useLists } from "$lib/stores/lists.svelte";
 import { useProfile } from "$lib/stores/profile.svelte";
 import { useSession } from "$lib/stores/session.svelte";
+import { toasts } from "$lib/ui/toast";
 import { useConversation } from "$lib/stores/conversation.svelte";
 import { useSessionHistory } from "$lib/stores/session-history.svelte";
 import { useInteraction } from "$lib/stores/interaction.svelte";
@@ -30,6 +31,7 @@ export function buildClientToolContext(): ClientToolContext {
 
   return {
     onHighlight: (items) => ui.highlight(items),
+    onRegisterProduct: (product) => ui.registerProduct(product as Product),
     onOpenDetail: (id) => ui.openProductDetail(id),
     onCloseDetail: () => ui.closeProductDetail(),
     onFilter: (products, query) => ui.setSearchResults(products as Product[], query ?? ""),
@@ -37,7 +39,9 @@ export function buildClientToolContext(): ClientToolContext {
     onAddToWishlist: (id) => {
       const product = ui.getProduct(id);
       if (!product) return false;
+      const wasLiked = lists.isLiked(product.id);
       lists.toggleLike(product);
+      toasts.success(wasLiked ? "Removed from wishlist" : "Added to wishlist");
       return true;
     },
     onSaveFact: (text, category) => profile.addFact(text, category as never),
@@ -46,16 +50,19 @@ export function buildClientToolContext(): ClientToolContext {
     onGetUserHighlights: () => ui.getUserHighlights(),
     onAddToCart: (id, qty = 1) => {
       const product = ui.getProduct(id);
-      if (product) { cart.addItem(product, qty); return true; }
+      if (product) { cart.addItem(product, qty); toasts.success(`Added ${product.name} to cart`); return true; }
       return false;
     },
-    onRegisterProduct: (product) => ui.registerProduct(product as Product),
     onRemoveFromCart: (id) => cart.removeItem(id),
     onUpdateCartQuantity: (id, qty) => cart.updateQuantity(id, qty),
     onGetCartContents: () => cart.items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-    onOrderCreated: (order) => {
+    onOrderCreated: (order, payload) => {
       ui.setOrderResult(order);
-      const record = createOrderRecord(order as CreatedOrder);
+      const cartSnapshot = cart.items.map((i) => ({
+        productId: i.product.id, name: i.product.name, price: i.product.price ?? undefined,
+        currency: i.product.currency, quantity: i.quantity, imageUrl: i.product.imageUrl,
+      }));
+      const record = createOrderRecord(order as CreatedOrder, payload, cartSnapshot);
       if (record) session.upsertOrderRecord(record);
       for (const panel of [...ui.panels].filter((p) => p.type === "create-order")) {
         ui.close(panel.id, order);
@@ -63,6 +70,7 @@ export function buildClientToolContext(): ClientToolContext {
       cart.clear();
     },
     onAskUser: (question, options) => new Promise<string>((resolve) => ui.setAskUser(question, options, resolve)),
+    onAutoDismissAskUser: () => ui.autoDismissAskUser(),
     onSetDeliveryEstimate: (estimate) => cart.setDeliveryEstimate(estimate),
     onGetCompletedOrderRecord: (orderNumber) => session.getCompletedOrderRecord(orderNumber),
     onUpsertOrderRecord: (record) => session.upsertOrderRecord(record),

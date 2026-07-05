@@ -16,10 +16,12 @@
   import { Copy, Brain } from "@lucide/svelte";
   import { useUI } from "$lib/stores/ui.svelte";
   import { toasts } from "$lib/ui/toast";
-  import ChatInputBar from "./shell/ChatInputBar.svelte";
+  import ChatComposer from "./shell/ChatComposer.svelte";
   import { exportFullDebugBundle } from "$lib/debug/app-inspector";
   import OrderConfirmationCard from "$lib/components/OrderConfirmationCard.svelte";
   import { getCreatedOrderFromToolPart } from "$lib/order/order-render";
+import DeliveryCheckCard from "$lib/components/DeliveryCheckCard.svelte";
+import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
 
   const reducedMotion = $derived(typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let { liveActive = false }: { liveActive?: boolean } = $props();
@@ -32,6 +34,11 @@
   const liveVoice = useLiveVoice();
 
   let scrollContainer: HTMLElement | undefined = $state();
+  let selectedPart: TurnPart | undefined = $state();
+
+  function closePopup() {
+    selectedPart = undefined;
+  }
 
   $effect(() => {
     void conv.turns.length;
@@ -137,12 +144,21 @@
                 {#if createdOrder}
                   <OrderConfirmationCard order={createdOrder} />
                 {:else}
-                  <div class="chip chip--{part.status}">
-                    {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.label ?? part.name} />{/if}
-                    <span class="chip-label">{part.label ?? part.name}</span>
-                    {#if part.detail}<span class="chip-detail">{part.detail}</span>{/if}
-                    {#if part.summary}<span class="chip-summary">{part.summary}</span>{/if}
-                  </div>
+                  {@const deliveryCheck = getDeliveryCheckFromToolPart(part)}
+                  {#if deliveryCheck}
+                    <DeliveryCheckCard city={deliveryCheck.city} rate={deliveryCheck.rate} dates={deliveryCheck.dates} />
+                  {:else}
+                    <div
+                      class="chip chip--{part.status}"
+                      role="button"
+                      tabindex="0"
+                      onclick={() => selectedPart = part}
+                      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPart = part; } }}
+                    >
+                      {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.summary ?? part.label ?? part.name} />{/if}
+                      <span class="chip-text">{part.summary ?? part.label ?? part.name}</span>
+                    </div>
+                  {/if}
                 {/if}
               {:else if part.type === "image"}
                 <div class="message-image-container">
@@ -167,11 +183,49 @@
       </div>
     {/if}
   </div>
-  <!-- Chat input bar inside conversation tile -->
-  <ChatInputBar
-    class="chat-input-bar"
-    {liveActive}
-  />
+
+  <!-- Tool chip detail popup -->
+  {#if selectedPart?.type === "tool-call"}
+    {@const toolPart = selectedPart}
+    {@const argsPreview = toolPart.args ? Object.entries(toolPart.args).slice(0, 8) : []}
+    <div class="popup-overlay" role="presentation" onclick={closePopup}>
+       <div class="popup-glass" role="dialog" aria-modal="true" aria-label={toolPart.name} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') closePopup(); }}>
+        <div class="popup-header">
+          <span class="popup-title">{toolPart.name}</span>
+          <button class="popup-close" onclick={closePopup} aria-label="Close">&times;</button>
+        </div>
+
+        {#if toolPart.status === "error"}
+          <div class="popup-error">
+            {toolPart.summary ?? "Tool failed"}
+          </div>
+        {/if}
+
+        {#if argsPreview.length > 0}
+          <div class="popup-section">
+            <span class="popup-section-title">Arguments</span>
+            <div class="popup-args">
+              {#each argsPreview as [key, val]}
+                <div class="popup-args-row">
+                  <span class="popup-args-key">{key}</span>
+                  <span class="popup-args-val">{typeof val === "object" ? JSON.stringify(val) : String(val)}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if toolPart.result}
+          <div class="popup-section">
+            <span class="popup-section-title">Result</span>
+            <pre class="popup-result">{JSON.stringify(toolPart.result, null, 2)}</pre>
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
+  <!-- Chat input surface (shared with AgentBar) -->
+  <ChatComposer variant="panel" {liveActive} />
 </div>
 
 <style>
@@ -179,8 +233,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 0;
-    overflow: hidden;
+    container-type: inline-size;
   }
 
   .conv-header {
@@ -244,22 +297,21 @@
     border-bottom-right-radius: 0.375rem;
   }
   .bubble--assistant {
+    max-width: 80%;
     background: color-mix(in srgb, var(--color-surface-elevated) 85%, transparent);
     backdrop-filter: blur(12px);
     border: 1px solid var(--color-border);
-    border-bottom-left-radius: 0.375rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
+  }
+  /* On narrow panels, agent bubbles fill the available width */
+  @container (max-width: 420px) {
+    .bubble--assistant {
+      max-width: 100%;
+    }
   }
   .user-text { white-space: pre-wrap; }
   .bubble-text { overflow-wrap: anywhere; }
   .bubble-text :global(p) { margin: 0 0 0.5rem; }
   .bubble-text :global(p:last-child) { margin-bottom: 0; }
-  .bubble-text + .chip,
-  .chip + .bubble-text {
-    margin-top: 0.125rem;
-  }
   .bubble-text :global(ul) { padding-left: 1rem; margin: 0.25rem 0; }
   .bubble-text :global(li) { margin: 0.125rem 0; }
   .bubble-text :global(strong) { font-weight: 700; }
@@ -277,49 +329,125 @@
     overflow: hidden;
     border-radius: var(--radius-md);
     border: 1px solid var(--color-border);
-    margin-block: 0.25rem;
   }
-  .message-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  /* Tool chips */
+  /* Tool chips — frosted glass */
   .chip {
-    display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
-    padding: 0.1875rem 0.5rem; border-radius: var(--radius-sm);
-    font-size: var(--fs-xs); border: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-muted) 60%, transparent);
-    backdrop-filter: blur(4px);
-  }
-  .chip--pending { opacity: 0.6; }
-  .chip--done { border-color: var(--color-success); color: var(--color-success); }
-  .chip--error { border-color: var(--color-destructive); color: var(--color-destructive); }
-  .chip-label { font-weight: 600; }
-  .chip-summary { color: var(--color-muted-foreground); }
-  .chip-detail {
-    width: 100%;
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.125rem 0.5rem; margin-right: 0.375rem; border-radius: var(--radius-md);
+    font-size: var(--fs-xs); font-weight: 500;
+    border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     color: var(--color-muted-foreground);
-    opacity: 0.75;
-    font-size: 0.5625rem;
-    padding-left: 0.125rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+    user-select: none;
+  }
+  .chip:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  }
+  .chip + .chip { margin-top: 0.1875rem; }
+  .chip--pending {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+    color: var(--color-primary);
+  }
+  .chip--done {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+    color: var(--color-success);
+  }
+  .chip--error {
+    border-color: color-mix(in srgb, var(--color-destructive) 50%, transparent);
+    background: color-mix(in srgb, var(--color-destructive) 8%, var(--color-surface));
+    color: var(--color-destructive);
+  }
+  .chip-text {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 14rem;
   }
 
-  /* Markdown Tables */
-  .bubble-text :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0.5rem 0;
-    font-size: var(--fs-sm);
+  /* Tool chip detail popup */
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--color-surface) 50%, transparent);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
-  .bubble-text :global(th), .bubble-text :global(td) {
+  .popup-glass {
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
-    padding: 0.375rem 0.5rem;
-    text-align: left;
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    max-width: 32rem; width: 90%; max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-float);
   }
-  .bubble-text :global(th) {
-    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
-    font-weight: 600;
+  .popup-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .popup-title {
+    font-size: var(--fs-sm); font-weight: 700;
+    color: var(--color-foreground);
+    font-family: var(--font-mono);
+  }
+  .popup-close {
+    background: none; border: none;
+    color: var(--color-muted-foreground);
+    font-size: 1.125rem; cursor: pointer; line-height: 1;
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
+  }
+  .popup-close:hover {
+    color: var(--color-foreground);
+    background: var(--color-muted);
+  }
+  .popup-error {
+    background: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-destructive) 30%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.625rem;
+    margin-bottom: 0.75rem;
+    font-size: var(--fs-xs);
+    color: var(--color-destructive);
+  }
+  .popup-section { margin-bottom: 0.75rem; }
+  .popup-section-title {
+    display: block;
+    font-size: var(--fs-xs); font-weight: 600;
+    color: var(--color-muted-foreground);
+    margin-bottom: 0.375rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .popup-args {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.125rem 0.5rem;
+    font-size: var(--fs-xs);
+  }
+  .popup-args-key {
+    font-weight: 600; color: var(--color-muted-foreground);
+    font-family: var(--font-mono);
+  }
+  .popup-args-val {
+    color: var(--color-foreground);
+    word-break: break-all;
+    font-family: var(--font-mono);
+  }
+  .popup-result {
+    background: var(--color-muted);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.625rem;
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    color: var(--color-foreground);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 12rem;
   }
 
   .conv-empty {
@@ -345,28 +473,7 @@
     color: var(--color-foreground);
     background-color: var(--color-muted);
   }
-  .chat-input-bar:focus-within {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 1px var(--color-primary);
-    background: color-mix(in srgb, var(--color-surface) 98%, transparent);
-  }
-
-  .chat-input-bar {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-xl);
-    background: color-mix(in srgb, var(--color-surface) 95%, transparent);
-    flex-shrink: 0;
-    width: calc(100% - 1.5rem);
-    max-width: 32rem;
-    margin: 0.5rem auto 0.75rem;
-    box-shadow: var(--shadow-sm);
-  }
   @media (prefers-reduced-motion: reduce) {
     .conv-tile { transition-duration: 0.01ms; }
-    .chat-input-bar { transition-duration: 0.01ms; }
   }
 </style>

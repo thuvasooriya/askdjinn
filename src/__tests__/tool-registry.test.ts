@@ -41,13 +41,14 @@ describe("tool-registry", () => {
     expect(names).toContain("product_highlight");
     expect(names).toContain("order_create");
     expect(names).toContain("order_track");
+    expect(names).toContain("order_get_created");
     expect(names).toContain("web_search");
     expect(names).toContain("web_fetch_url");
     expect(names.length).toBe(ALL_TOOLS.length);
   });
 
   test("all expected tools are registered", () => {
-    expect(ALL_TOOLS.length).toBe(39);
+    expect(ALL_TOOLS.length).toBe(42);
   });
 
   test("shopping tools include order tools and address tools", () => {
@@ -58,6 +59,8 @@ describe("tool-registry", () => {
     expect(TOOLS.order_create.parameters.properties.cart).toBeDefined();
     expect(TOOLS.order_track.parameters.properties.order_number).toBeDefined();
     expect(TOOLS.order_list).toBeDefined();
+    expect(TOOLS.order_get_created).toBeDefined();
+    expect(TOOLS.order_get_created.parameters.properties.order_ref).toBeDefined();
     expect(TOOLS.address_list).toBeDefined();
     expect(TOOLS.address_add).toBeDefined();
     expect(TOOLS.address_remove).toBeDefined();
@@ -81,8 +84,8 @@ describe("tool-registry", () => {
     expect(UI_ONLY_TOOLS.has("product_open_detail")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_close_detail")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_scroll_to")).toBe(true);
+    expect(UI_ONLY_TOOLS.has("live_end_session")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_search")).toBe(false);
-    expect(UI_ONLY_TOOLS.has("order_create")).toBe(false);
   });
 });
 
@@ -151,6 +154,7 @@ describe("executeClientTool", () => {
       onGetCartContents: () => [] as Array<{ id: string; name: string; price?: number; quantity: number }>,
       onOrderCreated: (_order: any) => {},
       onAskUser: async (_question: string, _options: string[]) => "",
+      onAutoDismissAskUser: () => {},
       onSearch: async (_args: any) => [] as any[],
       onShowPanel: async (_config: any) => null,
       // Phase 5 layout/panel-management handlers (no-op stubs for tests that
@@ -256,6 +260,72 @@ describe("executeClientTool", () => {
     );
     expect(scrollId).toBe("x");
   });
+
+  test("order_get_created returns saved payload and cart snapshot", async () => {
+    const payload = {
+      cart: [{ product_id: "p1", quantity: 2 }],
+      recipient: { name: "Nila", phone: "+94770000000" },
+      delivery: { address: "Street", city: "Colombo", date: "2026-07-10" },
+      sender: { name: "Tony" },
+      gift_message: null,
+    };
+    const cartSnapshot = [{ productId: "p1", name: "Cake", price: 1200, currency: "LKR", quantity: 2 }];
+    const ctx = {
+      ...makeMockCtx(),
+      onGetOrderRecords: () => [{
+        kind: "created" as const,
+        id: "REF-1",
+        orderRef: "REF-1",
+        createdAt: 1,
+        status: "pending_payment" as const,
+        statusDisplay: "Pending",
+        lastCheckedAt: 0 as const,
+        payload,
+        cartSnapshot,
+      }],
+    };
+    const result = await executeClientTool(
+      { id: "9", name: "order_get_created", args: { order_ref: "REF-1" } },
+      ctx,
+    );
+    expect(result.response.found).toBe(true);
+    expect(result.response.payload).toEqual(payload);
+    expect(result.response.cartSnapshot).toEqual(cartSnapshot);
+    expect(result.response.retryAvailable).toBe(true);
+  });
+
+  test("order_create rejects duplicate in-flight requests", async () => {
+    const originalFetch = globalThis.fetch;
+    let resolveFetch: ((response: Response) => void) | undefined;
+    globalThis.fetch = ((() => new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    })) as unknown) as typeof fetch;
+
+    const args = {
+      cart: [{ product_id: "p1", quantity: 1 }],
+      recipient_name: "Test Recipient",
+      recipient_phone: "0771234567",
+      street_address: "123 Test Street",
+      delivery_city: "Colombo 03",
+      delivery_date: "2026-07-07",
+      sender_name: "Test Sender",
+    };
+
+    try {
+      const ctx = makeMockCtx();
+      const first = executeClientTool({ id: "10", name: "order_create", args }, ctx);
+      await Promise.resolve();
+
+      const second = await executeClientTool({ id: "11", name: "order_create", args }, ctx);
+      expect(second.response.error).toContain("already in progress");
+
+      resolveFetch?.(new Response(JSON.stringify({ orderRef: "REF-1", paymentUrl: "https://pay.example.test" }), { status: 200 }));
+      const firstResult = await first;
+      expect(firstResult.response.orderRef).toBe("REF-1");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 // ── Prompt Builder Tests ─────────────────────────────────────────────────────
@@ -357,5 +427,64 @@ describe("prompt builder", () => {
     expect(textPrompt).not.toBe(livePrompt);
     expect(textPrompt).toContain("TEXT CHAT");
     expect(livePrompt).toContain("LIVE VOICE");
+  });
+
+  test("text formatting is injected only in text mode, not live", () => {
+    const textPrompt = buildTextPrompt({ agentId: "mithu", language: "english" });
+    const livePrompt = buildLivePrompt({ agentId: "mithu", language: "english" });
+    expect(textPrompt).toContain("TEXT FORMATTING (Mithu)");
+    expect(livePrompt).not.toContain("TEXT FORMATTING");
+  });
+
+  test("each agent has distinct text formatting", () => {
+    expect(buildTextPrompt({ agentId: "ruka", language: "english" })).toContain("normal, natural amount of emojis");
+    expect(buildTextPrompt({ agentId: "mithu", language: "english" })).toContain("No emojis");
+    expect(buildTextPrompt({ agentId: "kavi", language: "english" })).toContain("kaomoji freely");
+    expect(buildTextPrompt({ agentId: "neel", language: "english" })).toContain("only when essential");
+  });
+
+  test("signature phrase is injected in both modes for every agent", () => {
+    const cases: Array<["ruka" | "mithu" | "kavi" | "neel", string]> = [
+      ["ruka", "Aiyooo!"],
+      ["mithu", "pakka."],
+      ["kavi", "Ah, listen —"],
+      ["neel", "Bottom line:"],
+    ];
+    for (const [agentId, phrase] of cases) {
+      const textPrompt = buildTextPrompt({ agentId, language: "english" });
+      const livePrompt = buildLivePrompt({ agentId, language: "english" });
+      expect(textPrompt, `${agentId} text`).toContain(phrase);
+      expect(livePrompt, `${agentId} live`).toContain(phrase);
+    }
+  });
+
+  test("ruka has a rotating set of signature expressions, not just one", () => {
+    const prompt = buildTextPrompt({ agentId: "ruka", language: "english" });
+    expect(prompt).toContain("Aiyooo!");
+    expect(prompt).toContain("Ela kiri");
+    expect(prompt).toContain("Ane!");
+    expect(prompt).toContain("Machan");
+    expect(prompt).toContain("rotate");
+  });
+
+  test("signature flavor is language-aware with english fallback and guards against overuse", () => {
+    // language-aware: ruka/mithu use sinhala/tamil vocab in those modes
+    expect(buildTextPrompt({ agentId: "ruka", language: "sinhala" })).toContain("Elakiri");
+    expect(buildTextPrompt({ agentId: "ruka", language: "tamil" })).toContain("Semma");
+    expect(buildTextPrompt({ agentId: "mithu", language: "sinhala" })).toContain("Hari.");
+    expect(buildTextPrompt({ agentId: "mithu", language: "tamil" })).toContain("Seri.");
+    // english fallback: kavi/neel only define english, used for all languages
+    expect(buildTextPrompt({ agentId: "kavi", language: "sinhala" })).toContain("Imagine —");
+    expect(buildTextPrompt({ agentId: "neel", language: "tamil" })).toContain("Bottom line:");
+    // anti-overuse wording is present
+    const prompt = buildTextPrompt({ agentId: "ruka", language: "english" });
+    expect(prompt).toContain("OPTIONAL");
+    expect(prompt).toContain("Do NOT prepend one to every message");
+  });
+
+  test("inline UI directive tells agent not to repeat tool results", () => {
+    const prompt = buildTextPrompt({ agentId: "ruka", language: "english" });
+    expect(prompt).toContain("TOOL RESULTS ARE SHOWN IN THE UI");
+    expect(prompt).toContain("Do NOT repeat");
   });
 });

@@ -313,7 +313,7 @@
           <!-- 3. Theme Selection -->
           <div class="section-group">
             <span class="section-label">Preferred Theme</span>
-            <div class="grid grid-cols-3 gap-2 mt-2">
+            <div class="grid grid-cols-2 gap-2 mt-2">
               {#each THEME_LIST as theme (theme.id)}
                 <button
                   type="button"

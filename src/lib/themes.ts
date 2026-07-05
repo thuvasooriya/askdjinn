@@ -14,15 +14,12 @@
  */
 
 export type ThemeId =
-  | "tokyonight-night"
-  | "tokyonight-day"
   | "chocolate"
   | "catppuccin-latte"
-  | "catppuccin-frappe"
-  | "catppuccin-mocha"
   | "gruvbox-material-dark"
   | "gruvbox-material-light"
-  | "dusty-rose";
+  | "catppuccin-frappe"
+  | "catppuccin-mocha";
 
 export type ThemeMode = "light" | "dark";
 
@@ -40,22 +37,6 @@ export interface ThemeConfig {
 }
 
 export const THEMES: Record<ThemeId, ThemeConfig> = {
-  "tokyonight-night": {
-    id: "tokyonight-night",
-    name: "TokyoNight Night",
-    shortName: "Tokyo Night",
-    description: "Deep blue-black, neon accents. The classic TokyoNight.",
-    mode: "dark",
-    swatch: ["#16161e", "#1a1b26", "#7aa2f7", "#bb9af7"],
-  },
-  "tokyonight-day": {
-    id: "tokyonight-day",
-    name: "TokyoNight Day",
-    shortName: "Tokyo Day",
-    description: "Light, airy, with TokyoNight's signature blue.",
-    mode: "light",
-    swatch: ["#e1e2e7", "#d4d7e2", "#2e7de9", "#9854f1"],
-  },
   chocolate: {
     id: "chocolate",
     name: "Dawn",
@@ -71,22 +52,6 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     description: "Light, creamy, balanced. The light Catppuccin.",
     mode: "light",
     swatch: ["#eff1f5", "#e6e9ef", "#8839ef", "#1e66f5"],
-  },
-  "catppuccin-frappe": {
-    id: "catppuccin-frappe",
-    name: "Catppuccin Frappé",
-    shortName: "Frappé",
-    description: "Soft, muted dark. The lightest dark Catppuccin.",
-    mode: "dark",
-    swatch: ["#292c3c", "#303446", "#ca9ee6", "#8caaee"],
-  },
-  "catppuccin-mocha": {
-    id: "catppuccin-mocha",
-    name: "Catppuccin Mocha",
-    shortName: "Mocha",
-    description: "The darkest, most popular Catppuccin.",
-    mode: "dark",
-    swatch: ["#181825", "#1e1e2e", "#cba6f6", "#89b4fa"],
   },
   "gruvbox-material-dark": {
     id: "gruvbox-material-dark",
@@ -104,13 +69,21 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     mode: "light",
     swatch: ["#fbf1c7", "#f4e8be", "#c35e0a", "#45707a"],
   },
-  "dusty-rose": {
-    id: "dusty-rose",
-    name: "Dusty Rose",
-    shortName: "Dusty Rose",
-    description: "Muted mauve, dusty rose, and taupe. Soft and elegant.",
-    mode: "light",
-    swatch: ["#d6cfcb", "#ccb7ae", "#a6808c", "#706677"],
+  "catppuccin-frappe": {
+    id: "catppuccin-frappe",
+    name: "Catppuccin Frappé",
+    shortName: "Frappé",
+    description: "Soft, muted dark. The lightest dark Catppuccin.",
+    mode: "dark",
+    swatch: ["#292c3c", "#303446", "#ca9ee6", "#8caaee"],
+  },
+  "catppuccin-mocha": {
+    id: "catppuccin-mocha",
+    name: "Catppuccin Mocha",
+    shortName: "Mocha",
+    description: "The darkest, most popular Catppuccin.",
+    mode: "dark",
+    swatch: ["#181825", "#1e1e2e", "#cba6f6", "#89b4fa"],
   },
 };
 

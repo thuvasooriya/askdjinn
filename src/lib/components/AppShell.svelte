@@ -21,6 +21,7 @@
   import FloatingResponse from "$lib/components/shell/FloatingResponse.svelte";
   import Region from "$lib/components/shell/Region.svelte";
   import Dock from "$lib/components/shell/Dock.svelte";
+  import WebcamPip from "./shell/WebcamPip.svelte";
   import AgentBar from "./AgentBar.svelte";
   import Onboarding from "./Onboarding.svelte";
   import AskUserModal from "./AskUserModal.svelte";
@@ -60,6 +61,7 @@
 
   function addProduct(product: Product, _sourceEl: HTMLElement | null = null) {
     cart.addItem(product);
+    toasts.success("Added to cart");
   }
 
   $effect(() => {
@@ -77,6 +79,10 @@
   let bumpTimer: number | undefined;
   $effect(() => () => { if (bumpTimer) window.clearTimeout(bumpTimer); });
   function bumpCart() { cartBumping = true; if (bumpTimer) window.clearTimeout(bumpTimer); bumpTimer = window.setTimeout(() => { cartBumping = false; }, 600); }
+  function openPaymentLink(url?: string) {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   const detailProduct = $derived(
     ui.productDetailId
@@ -150,35 +156,6 @@
       : visibleCount === 2 ? 'grid-2'
       : 'grid-3'
   );
-  let pipX = $state(20);
-  let pipY = $state(20);
-  let draggingPip = false;
-  let startX = 0;
-  let startY = 0;
-
-  function startPipDrag(e: PointerEvent) {
-    if ((e.target as HTMLElement).classList.contains("pip-close")) return;
-    draggingPip = true;
-    startX = e.clientX - pipX;
-    startY = e.clientY - pipY;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      if (!draggingPip) return;
-      pipX = moveEvent.clientX - startX;
-      pipY = moveEvent.clientY - startY;
-    };
-
-    const onPointerUp = (upEvent: PointerEvent) => {
-      draggingPip = false;
-      (e.target as HTMLElement).releasePointerCapture(upEvent.pointerId);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-    };
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-  }
 </script>
 <svelte:window oncontextmenu={(e) => e.preventDefault()} />
 
@@ -202,7 +179,7 @@
       onNewConversation={newConversation}
       onRerunOnboarding={rerunOnboarding}
       onClearCache={clearCache}
-      onCartClick={(el) => { cartButtonEl = el; bumpCart(); ui.togglePanel("cart"); }}
+      onCartClick={(el) => { cartButtonEl = el; bumpCart(); ui.togglePanelVisibility("cart"); }}
       {isHome}
     />
 
@@ -214,7 +191,7 @@
         {#if ui.lastOrder.orderRef ?? ui.lastOrder.orderNumber}<span class="order-num font-mono text-[10px] text-[var(--color-muted-foreground)]">{ui.lastOrder.orderRef ?? ui.lastOrder.orderNumber}</span>{/if}
         <span class="flex-1"></span>
         {#if ui.lastOrder.paymentUrl}
-          <a href={ui.lastOrder.paymentUrl} target="_blank" rel="noreferrer" class="order-pay flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-primary-foreground)] no-underline">Pay <ExternalLink class="h-3 w-3" /></a>
+          <button type="button" onclick={() => openPaymentLink(ui.lastOrder?.paymentUrl)} class="order-pay flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-primary-foreground)] no-underline">Pay <ExternalLink class="h-3 w-3" /></button>
         {/if}
         <button onclick={() => ui.clearOrderResult()} type="button" class="order-dismiss" aria-label="Dismiss"><X class="h-3 w-3" /></button>
       </div>
@@ -263,11 +240,7 @@
   </div>
     <!-- Floating FaceTime PIP webcam preview for Video Calls -->
     {#if liveVoice.videoStream}
-      <!-- svelte-ignore a11y_media_has_caption -->
-      <div class="webcam-pip glass shadow-2xl" role="region" aria-label="Webcam preview" transition:fade={{ duration: 150 }} style="transform: translate({pipX}px, {pipY}px);" onpointerdown={startPipDrag}>
-        <video srcObject={liveVoice.videoStream} autoplay playsinline muted></video>
-        <button type="button" class="pip-close" onclick={() => liveVoice.stopVideoStream()}>×</button>
-      </div>
+      <WebcamPip stream={liveVoice.videoStream} onClose={() => liveVoice.stopVideoStream()} />
     {/if}
 {/if}
 
@@ -327,44 +300,4 @@
   :global(.fly-clone) { position: fixed; border-radius: var(--radius-full); z-index: 100; pointer-events: none; transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.6s ease-out; }
   :global(.cart-bump) { animation: cart-bump-anim 0.4s ease-out; }
   @keyframes cart-bump-anim { 0% { transform: scale(1); } 30% { transform: scale(1.3); } 100% { transform: scale(1); } }
-  /* FaceTime PIP preview */
-  .webcam-pip {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    width: 9rem;
-    aspect-ratio: 4 / 3;
-    z-index: 62;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--color-border);
-    overflow: hidden;
-    cursor: grab;
-    touch-action: none;
-  }
-  .webcam-pip:active {
-    cursor: grabbing;
-  }
-  .webcam-pip video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .pip-close {
-    position: absolute;
-    top: 0.25rem;
-    right: 0.25rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: var(--radius-full);
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    border: none;
-    font-size: 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    z-index: 5;
-  }
 </style>

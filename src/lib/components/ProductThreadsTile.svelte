@@ -210,14 +210,19 @@
   .thread-section {
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    gap: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-elevated);
+    padding: 0.5rem;
+    box-shadow: var(--shadow-card);
   }
 
   .thread-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 0.25rem;
+    padding: 0 0.125rem;
   }
   .thread-query {
     font-size: var(--fs-sm);
@@ -248,13 +253,38 @@
 
   .thread-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 180px));
-    justify-content: start;
+    /* auto-fit collapses empty tracks and lets 1fr distribute any
+       leftover row width evenly across the actual cards, so a row of
+       2 cards stretches to fill the width just as evenly as a row of
+       6 — instead of auto-fill's fixed 180px cap, which left unused
+       space at the end of a row. */
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    /* Cards are equal height by construction (see ProductCard.svelte:
+       fixed image aspect-ratio + fixed title height + fixed price-row
+       height), so start (not grid's default stretch) keeps that the
+       source of truth rather than an implicit grid side effect. */
+    align-items: start;
     gap: 0.5rem;
   }
 
   .thread-product {
     min-width: 0;
+    /* Prevents a sparse row (e.g. 1-2 results) from stretching a card
+       to the full row width; cards still fill available space via the
+       grid's 1fr tracks, just capped at a sensible card width. */
+    max-width: 220px;
+    /*
+      Grid items default to justify-items: stretch, meaning this element
+      still occupies the full 1fr-stretched column width even though its
+      own rendered box is capped at 220px by max-width above — and a
+      block box narrower than its container left-aligns by default.
+      That's the asymmetric look on narrow/single-column mobile viewports:
+      one card sitting flush left with a large empty gap on the right.
+      centering it within its own grid cell fixes that at every width,
+      with no separate breakpoint needed — it's a no-op once the cell
+      width is already at or below 220px.
+    */
+    justify-self: center;
     will-change: transform;
   }
 

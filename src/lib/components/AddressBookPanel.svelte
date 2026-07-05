@@ -154,7 +154,7 @@
 
 <section class="flex h-full min-h-0 flex-col" aria-label="Address Book">
     <!-- Header -->
-    <PanelHeader title="Address Book">
+    <PanelHeader title="Address Book" icon={MapPin}>
         {#snippet actions()}
             {#if !formOpen}
                 <PanelActionButton

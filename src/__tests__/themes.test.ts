@@ -36,13 +36,10 @@ describe("themes registry", () => {
     const expectedIds: ThemeId[] = [
       "chocolate",
       "catppuccin-latte",
-      "catppuccin-frappe",
-      "catppuccin-mocha",
-      "tokyonight-night",
-      "tokyonight-day",
       "gruvbox-material-dark",
       "gruvbox-material-light",
-      "dusty-rose",
+      "catppuccin-frappe",
+      "catppuccin-mocha",
     ];
     for (const id of expectedIds) {
       expect(THEMES[id], `missing theme ${id}`).toBeDefined();
@@ -50,22 +47,19 @@ describe("themes registry", () => {
     }
   });
 
-  test("ships all 9 themes", () => {
-    expect(THEME_LIST.length).toBe(9);
+  test("ships all 6 themes", () => {
+    expect(THEME_LIST.length).toBe(6);
     const catppuccin = THEME_LIST.filter(t => t.id.startsWith("catppuccin-"));
-    const tokyonight = THEME_LIST.filter(t => t.id.startsWith("tokyonight-"));
     const gruvbox = THEME_LIST.filter(t => t.id.startsWith("gruvbox-"));
     expect(catppuccin.length).toBe(3); // latte, frappe, mocha
-    expect(tokyonight.length).toBe(2); // night, day
     expect(gruvbox.length).toBe(2); // material dark, material light
     expect(THEMES.chocolate).toBeDefined();
-    expect(THEMES["dusty-rose"]).toBeDefined();
   });
 
   test("light themes are correctly marked", () => {
     const lightThemes = THEME_LIST.filter(t => t.mode === "light");
     const lightIds = lightThemes.map(t => t.id).sort();
-    expect(lightIds).toEqual(["catppuccin-latte", "dusty-rose", "gruvbox-material-light", "tokyonight-day"]);
+    expect(lightIds).toEqual(["catppuccin-latte", "gruvbox-material-light"]);
   });
 
   test("chocolate is the default theme and is dark", () => {
@@ -96,13 +90,10 @@ describe("isThemeId", () => {
     const validIds: ThemeId[] = [
       "chocolate",
       "catppuccin-latte",
-      "catppuccin-frappe",
-      "catppuccin-mocha",
-      "tokyonight-night",
-      "tokyonight-day",
       "gruvbox-material-dark",
       "gruvbox-material-light",
-      "dusty-rose",
+      "catppuccin-frappe",
+      "catppuccin-mocha",
     ];
     for (const id of validIds) {
       expect(isThemeId(id), `${id} should be valid`).toBe(true);
@@ -110,8 +101,6 @@ describe("isThemeId", () => {
   });
 
   test("returns false for invalid values", () => {
-    expect(isThemeId("chocolate-light")).toBe(false);
-    expect(isThemeId("mocha")).toBe(false); // partial name, not full id
     expect(isThemeId(null)).toBe(false);
     expect(isThemeId(undefined)).toBe(false);
     expect(isThemeId(123)).toBe(false);

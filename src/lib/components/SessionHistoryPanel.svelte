@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { X, Plus, Trash2, MessageSquare } from "@lucide/svelte";
+    import { X, Plus, Trash2, MessageSquare, History } from "@lucide/svelte";
     import Drawer from "$lib/ui/Drawer.svelte";
     import Button from "$lib/ui/Button.svelte";
     import PanelHeader from "$lib/ui/PanelHeader.svelte";
@@ -39,6 +39,7 @@
 {#snippet content()}
     <PanelHeader
         title="Session History"
+        icon={History}
         count={history.sessions.length}
         onClose={mode === "drawer" ? () => (open = false) : undefined}
     >

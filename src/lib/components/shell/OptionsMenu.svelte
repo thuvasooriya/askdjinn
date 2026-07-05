@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { Camera, Video, Upload } from "@lucide/svelte";
+  // OptionsMenu — single trigger for all input actions.
+  // Conditionally shows "Start Voice" when onVoiceStart is provided;
+  // always shows video / photo / upload.
+  import { Plus, Mic, Video, Camera, Upload } from "@lucide/svelte";
   import { fly } from "svelte/transition";
   import { cn } from "$lib/utils";
 
@@ -18,16 +21,23 @@
     media,
     align = "right",
     triggerClass = "",
+    onVoiceStart,
   }: {
     media: Media;
     align?: "left" | "right";
     triggerClass?: string;
+    onVoiceStart?: () => void;
   } = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
 
   function setCameraMenuAction(node: HTMLElement) {
     return media.setCameraMenuAction(node);
+  }
+
+  function startVoice() {
+    media.closeCameraMenu();
+    onVoiceStart?.();
   }
 </script>
 
@@ -44,10 +54,10 @@
     type="button"
     onclick={(e) => { e.stopPropagation(); media.toggleCameraMenu(); }}
     class={triggerClass}
-    aria-label="Camera and attachments"
-    title="Attachments"
+    aria-label="Input options"
+    title="Options"
   >
-    <Camera class="h-4 w-4" />
+    <Plus class="h-4 w-4" />
   </button>
   {#if media.cameraMenuOpen}
     <div
@@ -55,8 +65,13 @@
       transition:fly={{ y: -10, duration: 150 }}
       use:setCameraMenuAction
     >
+      {#if onVoiceStart}
+        <button type="button" class="dropdown-item" onclick={startVoice}>
+          <Mic class="h-3.5 w-3.5" /> Start Voice
+        </button>
+      {/if}
       <button type="button" class="dropdown-item" onclick={media.startVideoCall}>
-        <Video class="h-3.5 w-3.5" /> Video Call
+        <Video class="h-3.5 w-3.5" /> Start Video
       </button>
       <button type="button" class="dropdown-item" onclick={media.openWebcamCapture}>
         <Camera class="h-3.5 w-3.5" /> Take Photo

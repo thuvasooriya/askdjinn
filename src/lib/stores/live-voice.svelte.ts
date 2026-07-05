@@ -62,8 +62,10 @@ class LiveVoiceStore {
   private connectInFlight: Promise<boolean> | null = null;
   private conv = useConversation();
   private profile = useProfile();
+  private ui = useUI();
   private currentInputTurnId: string | null = null;
   private currentOutputTurnId: string | null = null;
+  private pendingDisconnect = false;
 
   /** Callback when the session ends */
   onEnded: (() => void) | null = null;
@@ -159,6 +161,13 @@ class LiveVoiceStore {
               model: `models/${tokenData.model}`,
               generationConfig: {
                 responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: this.profile.agent.geminiVoice,
+                    },
+                  },
+                },
               },
               systemInstruction: { parts: [{ text: buildLivePrompt(this.buildPromptContext()) + this.conv.toContextString() }] },
               tools: [{ functionDeclarations: getLiveModeDeclarations() }],
@@ -357,6 +366,7 @@ class LiveVoiceStore {
       }
     }
 
+
     const inputTranscription = content.inputTranscription as { text?: string; finished?: boolean } | undefined;
     if (inputTranscription?.text) {
       this.inputTranscript = inputTranscription.text;
@@ -389,31 +399,53 @@ class LiveVoiceStore {
         if (this.currentInputTurnId) { this.conv.finishTurn(this.currentInputTurnId); this.currentInputTurnId = null; }
         if (this.currentOutputTurnId) { this.conv.finishTurn(this.currentOutputTurnId); this.currentOutputTurnId = null; this.outputTranscript = ""; }
       }
+
+      // Gracefully disconnect if agent requested end of session
+      if (this.pendingDisconnect) {
+        this.pendingDisconnect = false;
+        this.disconnect();
+      }
     }
   }
 
   private async handleToolCall(functionCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>) {
     if (!this.ws || !this.toolCtx) return;
     devLog.info("handleToolCall", { count: functionCalls.length, calls: functionCalls.map(c => c.name) });
-
     const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
 
     for (const call of functionCalls) {
-      // Ensure there is an assistant turn to attach tool activity to, so every
-      // tool call is visible in the unified conversation log even if the model
-      // hasn't produced spoken output yet.
       if (!this.currentOutputTurnId) {
         this.currentOutputTurnId = this.conv.addTurn("assistant", "voice");
       }
       const label = toolUiConfig[call.name]?.label ?? call.name;
       this.conv.addPart(this.currentOutputTurnId, { type: "tool-call", id: call.id, name: call.name, status: "pending", args: call.args, label });
 
+      if (call.name === "ui_ask_user") {
+        const question = call.args.question as string;
+        const options = call.args.options as string[];
+        this.ui.setAskUser(question, options, (answer) => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            if (answer) {
+              this.ws.send(JSON.stringify({
+                realtimeInput: { text: `(User tapped: ${answer})` },
+              }));
+            } else {
+              this.ws.send(JSON.stringify({
+                realtimeInput: { text: `(User dismissed the question modal)` },
+              }));
+            }
+          }
+        });
+        responses.push({ id: call.id, name: "ui_ask_user", response: { asked: true } });
+        const { summary, detail } = summarizeToolCall(call.name, call.args, { asked: true });
+        this.conv.completeToolCall(this.currentOutputTurnId, call.id, "done", summary, detail);
+        continue;
+      }
+
       try {
-        const result = await executeClientTool(call, this.toolCtx);
+        const result = await executeClientTool(call, this.toolCtx!);
         responses.push(result);
         devLog.toolResult(call.name, result.response);
-        // Unified logging: same summary helper as text mode, stored on the
-        // tool-call part so the debug panel is consistent across modes.
         const { summary, detail } = summarizeToolCall(call.name, call.args, result.response);
         this.conv.completeToolCall(this.currentOutputTurnId, call.id, result.response.error == null ? "done" : "error", summary, detail, result.response);
       } catch (err) {
@@ -424,17 +456,21 @@ class LiveVoiceStore {
       }
     }
 
-    // Send tool responses back
+    const toolResponse: { id: string; name: string; response: Record<string, unknown> }[] = responses;
     if (this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         toolResponse: {
-          functionResponses: responses.map(r => ({
+          functionResponses: toolResponse.map(r => ({
             id: r.id,
             name: r.name,
             response: r.response,
           })),
         },
       }));
+    }
+
+    if (functionCalls.some(c => c.name === "live_end_session")) {
+      this.pendingDisconnect = true;
     }
   }
 
@@ -604,7 +640,15 @@ class LiveVoiceStore {
       layoutContext: buildLayoutContext(ui.panels, ui.tier, ui.activePanelId),
       visibleProducts: ui.searchThreads.map(t => ({
         query: t.query,
-        products: t.products.slice(0, 6).map(p => ({ id: p.id, name: p.name, price: p.price, currency: p.currency })),
+        products: t.products.slice(0, 6).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          currency: p.currency,
+          highlighted: ui.highlightedIds.has(p.id),
+          highlightReason: ui.annotations.get(p.id),
+          userHighlighted: ui.userHighlights.has(p.id),
+        })),
       })),
       activeProductContext: {
         productDetailId: ui.productDetailId,
@@ -645,3 +689,4 @@ const liveVoiceInstance = new LiveVoiceStore();
 export function useLiveVoice() {
   return liveVoiceInstance;
 }
+

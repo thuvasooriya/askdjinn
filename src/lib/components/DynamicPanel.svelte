@@ -17,6 +17,9 @@
   import { toasts } from "$lib/ui/toast";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
   import { createOrder, createOrderRecord } from "$lib/order/create-order-client";
+  import PanelHeader from "$lib/ui/PanelHeader.svelte";
+import PanelActionButton from "$lib/ui/PanelActionButton.svelte";
+import { Package } from "@lucide/svelte";
 
   const addresses = useAddresses();
   const ui = useUI();
@@ -70,16 +73,20 @@
       }
       submitting = true;
       try {
-        const data = await createOrder({
+        const payload = {
           cart: cart.items.map((i) => ({ product_id: i.product.id, quantity: i.quantity, icing_text: (i as { icingText?: string }).icingText })),
           recipient: { name: str(panel.data.recipientName), phone: str(panel.data.recipientPhone) },
           delivery: { address: str(panel.data.streetAddress), city: str(panel.data.deliveryCity), date: str(panel.data.deliveryDate) },
           sender: { name: str(panel.data.senderName) },
           gift_message: panel.data.giftMessage ? str(panel.data.giftMessage) : null,
-        });
+        };
+        const data = await createOrder(payload);
         ui.setOrderResult({ orderNumber: data.orderNumber, orderRef: data.orderRef, paymentUrl: data.paymentUrl, expiresAt: data.expiresAt });
-        const record = createOrderRecord(data);
-        if (record) session.upsertOrderRecord(record);
+        const cartSnapshot = cart.items.map((i) => ({
+          productId: i.product.id, name: i.product.name, price: i.product.price ?? undefined,
+          currency: i.product.currency, quantity: i.quantity, imageUrl: i.product.imageUrl,
+        }));
+        const record = createOrderRecord(data, payload, cartSnapshot);
         cart.clear();
         ui.closeDynamicPanel(panel.id, data);
         toasts.success("Order created successfully!");
@@ -140,20 +147,23 @@
 </script>
 
 <div class="panel glass" role="dialog" aria-label={panel.title}>
-  <header class="panel-header" class:panel-header--with-action={panel.type === "create-order"}>
-    <h3 class="panel-title">{panel.title}</h3>
-    {#if panel.type === "create-order"}
-      <button type="button" class="btn-primary create-order-header-btn" disabled={!canCreateOrder} onclick={submit}>
-        {#if submitting}
-          <BrailleSpinner size="sm" />
-          <span>Creating</span>
-        {:else}
-          <ShoppingBag class="h-4 w-4" />
-          <span>Create Order</span>
-        {/if}
-      </button>
-    {/if}
-  </header>
+  {#if panel.type === "create-order"}
+    <PanelHeader title={panel.title} icon={ShoppingBag}>
+      {#snippet actions()}
+        <PanelActionButton label="Create" icon={ShoppingBag} disabled={!canCreateOrder} onclick={submit} />
+      {/snippet}
+    </PanelHeader>
+  {:else if panel.type === "order-tracking"}
+    <PanelHeader title={panel.title} icon={Truck}>
+      {#snippet actions()}
+        <PanelActionButton label="Orders" icon={Package} onclick={() => ui.open("orders", { kind: "static" })} />
+      {/snippet}
+    </PanelHeader>
+  {:else}
+    <header class="panel-header">
+      <h3 class="panel-title">{panel.title}</h3>
+    </header>
+  {/if}
 
   <div class="panel-body">
     {#if panel.status === "expired"}
@@ -235,18 +245,26 @@
 
     {:else if panel.type === "create-order"}
       <!-- Cart summary -->
-      {#if cart.items.length > 0}
-        <div class="cart-summary">
-          {#each cart.items as item (item.product.id)}
-            <div class="cart-line">
-              <span class="cart-line-name">{item.product.name}</span>
-              <span class="cart-line-qty">x{item.quantity}</span>
-              <span class="cart-line-price">{formatMoney((item.product.price ?? 0) * item.quantity, item.product.currency)}</span>
-            </div>
-          {/each}
-          <div class="cart-total">
-            <span>Total</span>
-            <span>{formatMoney(cart.subtotal)}</span>
+        {#if cart.items.length > 0 && !ui.isVisible("cart")}
+        <div class="cart-table">
+          <div class="cart-table-header">
+            <span class="cart-table-th cart-table-th--item">Item</span>
+            <span class="cart-table-th cart-table-th--qty">Qty</span>
+            <span class="cart-table-th cart-table-th--price">Price</span>
+          </div>
+          <div class="cart-table-body">
+            {#each cart.items as item (item.product.id)}
+              <div class="cart-table-row">
+                <span class="cart-table-cell cart-table-cell--name">{item.product.name}</span>
+                <span class="cart-table-cell cart-table-cell--qty">x{item.quantity}</span>
+                <span class="cart-table-cell cart-table-cell--price">{formatMoney((item.product.price ?? 0) * item.quantity, item.product.currency)}</span>
+              </div>
+            {/each}
+          </div>
+          <div class="cart-table-footer">
+            <span class="cart-table-cell cart-table-cell--name">Total</span>
+            <span class="cart-table-cell cart-table-cell--qty"></span>
+            <span class="cart-table-cell cart-table-cell--price cart-table-total-value">{formatMoney(cart.subtotal)}</span>
           </div>
         </div>
       {/if}
@@ -278,42 +296,70 @@
     {:else if panel.type === "order-tracking"}
       <div class="tracking-panel">
         {#if panel.data.statusDisplay || panel.data.status}
-          <div class="tracking-status-badge">
-            <Truck class="h-5 w-5" />
-            <span>{panel.data.statusDisplay ?? panel.data.status}</span>
+          <div class="tracking-card">
+            <div class="tracking-card-header">
+              <Truck class="tracking-card-icon" />
+              <span class="tracking-card-title">{panel.data.statusDisplay ?? panel.data.status}</span>
+              {#if panel.data.comments}
+                <span class="tracking-comment-badge">{panel.data.comments}</span>
+              {/if}
+            </div>
+            <div class="tracking-details-grid">
+              {#if panel.data.orderNumber}
+                <span class="tracking-dt">Order</span>
+                <span class="tracking-dd">{panel.data.orderNumber}</span>
+              {/if}
+              {#if panel.data.orderDate}
+                <span class="tracking-dt">Order date</span>
+                <span class="tracking-dd">{panel.data.orderDate}</span>
+              {/if}
+              {#if panel.data.shippedDate}
+                <span class="tracking-dt">Shipped</span>
+                <span class="tracking-dd">{panel.data.shippedDate}</span>
+              {/if}
+              {#if panel.data.deliveryDate}
+                <span class="tracking-dt">Delivery</span>
+                <span class="tracking-dd">{panel.data.deliveryDate}</span>
+              {/if}
+              {#if panel.data.amount}
+                <span class="tracking-dt">Total</span>
+                <span class="tracking-dd">{(panel.data.amount as any).currency} {(panel.data.amount as any).value}</span>
+              {/if}
+            </div>
           </div>
         {/if}
-        {#if panel.data.orderNumber}
-          <p class="tracking-order-num">Order: {panel.data.orderNumber}</p>
-        {/if}
-        {#if panel.data.amount}
-          <p class="tracking-amount">Total: {formatMoney((panel.data.amount as any).value, (panel.data.amount as any).currency)}</p>
-        {/if}
-        {#if panel.data.orderDate}
-          <p class="tracking-date">Order date: {panel.data.orderDate}</p>
-        {/if}
-        {#if panel.data.shippedDate}
-          <p class="tracking-date">Shipped: {panel.data.shippedDate}</p>
-        {/if}
-        {#if panel.data.deliveryDate}
-          <p class="tracking-date">Estimated delivery: {panel.data.deliveryDate}</p>
-        {/if}
+
         {#if (panel.data.recipient as any)?.name || (panel.data.recipient as any)?.phone || (panel.data.recipient as any)?.address || (panel.data.recipient as any)?.city}
-          <div class="tracking-recipient">
-            <span class="tracking-section-label">Recipient</span>
-            {#if (panel.data.recipient as any).name}<p class="tracking-recipient-name">{(panel.data.recipient as any).name}</p>{/if}
-            {#if (panel.data.recipient as any).phone}<p class="tracking-recipient-phone">{(panel.data.recipient as any).phone}</p>{/if}
-            {#if (panel.data.recipient as any).address || (panel.data.recipient as any).city}
-              <p class="tracking-recipient-addr">{[(panel.data.recipient as any).address, (panel.data.recipient as any).city].filter(Boolean).join(", ")}</p>
-            {/if}
+          <div class="tracking-card">
+            <div class="tracking-card-header">
+              <span class="tracking-card-title">Recipient</span>
+            </div>
+            <div class="tracking-recipient-body">
+              {#if (panel.data.recipient as any).name}
+                <p class="tracking-recipient-name">{(panel.data.recipient as any).name}</p>
+              {/if}
+              {#if (panel.data.recipient as any).phone}
+                <p class="tracking-recipient-phone">{(panel.data.recipient as any).phone}</p>
+              {/if}
+              {#if (panel.data.recipient as any).address || (panel.data.recipient as any).city}
+                {@const addr = [(panel.data.recipient as any).address, (panel.data.recipient as any).city].filter(Boolean).join(", ")}
+                <p class="tracking-recipient-addr">{addr}</p>
+              {/if}
+            </div>
           </div>
         {/if}
+
         {#if panel.data.greetingMessage}
-          <div class="tracking-gift-note">
-            <span class="tracking-section-label">Gift message</span>
-            <p class="tracking-gift-msg">{panel.data.greetingMessage}</p>
+          <div class="tracking-card">
+            <div class="tracking-card-header">
+              <span class="tracking-card-title">Gift message</span>
+            </div>
+            <div class="tracking-recipient-body">
+              <p class="tracking-gift-msg">{panel.data.greetingMessage}</p>
+            </div>
           </div>
         {/if}
+
         {#if Array.isArray(panel.data.progress) && panel.data.progress.length > 0}
           <div class="tracking-timeline">
             {#each trackingProgress() as step, i (i)}
@@ -333,21 +379,13 @@
             {/each}
           </div>
         {/if}
-        {#if panel.data.comments}
-          <div class="tracking-comments">
-            <span class="tracking-section-label">Delivery comments</span>
-            <p>{panel.data.comments}</p>
-          </div>
-        {/if}
+
         {#if panel.data.hasDeliveryPhoto || panel.data.hasDeliveryVideo}
           <div class="tracking-media">
             {#if panel.data.hasDeliveryPhoto}<span class="media-badge">Photo available</span>{/if}
             {#if panel.data.hasDeliveryVideo}<span class="media-badge">Video available</span>{/if}
           </div>
         {/if}
-      </div>
-      <div class="panel-form-actions">
-        <button type="button" class="btn-primary" onclick={submit}>Done</button>
       </div>
 
     {:else if fields.length > 0}
@@ -393,9 +431,6 @@
     flex-shrink: 0;
   }
 
-  .panel-header--with-action {
-    padding-right: 8.75rem;
-  }
 
   .panel-title {
     font-family: var(--font-display);
@@ -404,6 +439,58 @@
     font-weight: 700;
     color: var(--color-foreground);
   }
+
+  /* Cart table (create-order summary) */
+  .cart-table {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .cart-table-header {
+    display: grid;
+    grid-template-columns: 1fr 2.5rem 5rem;
+  }
+  .cart-table-body {
+    overflow-y: auto;
+    max-height: 12rem;
+    overscroll-behavior: contain;
+  }
+  .cart-table-row {
+    display: grid;
+    grid-template-columns: 1fr 2.5rem 5rem;
+  }
+  .cart-table-footer {
+    display: grid;
+    grid-template-columns: 1fr 2.5rem 5rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .cart-table-cell,
+  .cart-table-th {
+    padding: 0.375rem 0.5rem;
+    font-size: var(--fs-xs);
+  }
+  .cart-table-header .cart-table-th {
+    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+  }
+  .cart-table-th--item,
+  .cart-table-cell--name { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cart-table-th--qty,
+  .cart-table-cell--qty { text-align: center; color: var(--color-muted-foreground); }
+  .cart-table-th--price,
+  .cart-table-cell--price { text-align: right; font-weight: 600; white-space: nowrap; }
+  .cart-table-footer .cart-table-cell {
+    font-weight: 700;
+    font-size: var(--fs-sm);
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  .cart-table-total-value { color: var(--color-primary); }
 
   .panel-body { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
 
@@ -478,82 +565,194 @@
     cursor: not-allowed;
     opacity: 0.45;
   }
-  .create-order-header-btn {
-    position: absolute;
-    right: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    min-height: 2.125rem;
-    padding-inline: 0.75rem;
+  /* ── Tracking Panel ── */
+  .tracking-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.5rem 0;
+  }
+
+  .tracking-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .tracking-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: color-mix(in srgb, var(--color-muted) 25%, transparent);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  :global(.tracking-card-icon) {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--color-primary);
+  }
+
+  .tracking-card-title {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-foreground);
+    text-transform: capitalize;
+  }
+
+  .tracking-comment-badge {
+    font-size: var(--fs-xs);
+    color: var(--color-muted-foreground);
+    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    margin-left: auto;
+  }
+
+  .tracking-details-grid {
+    display: grid;
+    grid-template-columns: minmax(max-content, 5rem) 1fr;
+    gap: 0;
+  }
+
+  .tracking-dt {
+    padding: 0.4375rem 0.625rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-muted) 15%, transparent);
     white-space: nowrap;
   }
-  .btn-secondary {
-    padding: 0.5rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-    background: var(--color-muted); color: var(--color-foreground);
-    font-size: var(--fs-md); font-weight: 500; cursor: pointer;
+
+  .tracking-dd {
+    padding: 0.4375rem 0.625rem;
+    font-size: var(--fs-sm);
+    color: var(--color-foreground);
+    border-bottom: 1px solid var(--color-border);
   }
 
-  /* Cart summary in create-order */
-  .cart-summary { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 0.625rem; display: flex; flex-direction: column; gap: 0.25rem; }
-  .cart-line { display: flex; align-items: baseline; gap: 0.5rem; font-size: var(--fs-sm); }
-  .cart-line-name { flex: 1; color: var(--color-foreground); }
-  .cart-line-qty { color: var(--color-muted-foreground); }
-  .cart-line-price { font-weight: 600; color: var(--color-foreground); }
-  .cart-total { display: flex; justify-content: space-between; padding-top: 0.375rem; border-top: 1px solid var(--color-border); font-size: var(--fs-md); font-weight: 700; color: var(--color-foreground); }
-
-  /* Special panels */
-  .wishlist-info {
-    display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; padding: 1rem;
+  .tracking-dt:nth-last-child(2),
+  .tracking-dd:last-child {
+    border-bottom: none;
   }
 
-  /* Tracking panel */
-  .tracking-panel { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.5rem 0; }
-  .tracking-status-badge {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.625rem 1rem; border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-    color: var(--color-primary); font-size: var(--fs-lg); font-weight: 700;
+  .tracking-recipient-body {
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
   }
-  .tracking-order-num { font-size: var(--fs-sm); color: var(--color-muted-foreground); }
-  .tracking-date { font-size: var(--fs-md); font-weight: 600; color: var(--color-foreground); }
-  .tracking-timeline { display: flex; flex-direction: column; gap: 0; padding-left: 0.5rem; }
+
+  .tracking-recipient-name {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin: 0;
+  }
+
+  .tracking-recipient-phone {
+    font-size: var(--fs-sm);
+    color: var(--color-muted-foreground);
+    margin: 0;
+  }
+
+  .tracking-recipient-addr {
+    font-size: var(--fs-sm);
+    color: var(--color-muted-foreground);
+    margin: 0;
+  }
+
+  .tracking-gift-msg {
+    font-size: var(--fs-sm);
+    font-style: italic;
+    color: var(--color-foreground);
+    margin: 0;
+  }
+
+  .tracking-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 0.5rem;
+  }
+
   .tracking-step {
-    display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.375rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.375rem 0;
     position: relative;
   }
+
   .tracking-step:not(:last-child)::before {
-    content: ""; position: absolute; left: 0.25rem; top: 1.25rem; bottom: -0.25rem;
-    width: 2px; background: var(--color-border);
+    content: "";
+    position: absolute;
+    left: 0.4375rem;
+    top: 1.25rem;
+    bottom: -0.25rem;
+    width: 2px;
+    background: var(--color-border);
   }
-  /* Lucide receives these classes through component forwarding. */
+
   .tracking-step :global(.tracking-step-icon) {
-    width: 1rem; height: 1rem; flex-shrink: 0; margin-top: 0.0625rem;
-    color: var(--color-border); background: var(--color-surface); border-radius: var(--radius-full); z-index: 1;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    margin-top: 0.0625rem;
+    color: var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-full);
+    z-index: 1;
   }
+
   .tracking-step :global(.tracking-step-icon--active) {
-    color: var(--color-primary); animation: tracking-pulse 1.4s ease-in-out infinite;
+    color: var(--color-primary);
+    animation: tracking-pulse 1.4s ease-in-out infinite;
   }
-  .tracking-step :global(.tracking-step-icon--done) { color: var(--color-success); }
+
+  .tracking-step :global(.tracking-step-icon--done) {
+    color: var(--color-success);
+  }
+
   @keyframes tracking-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.12); opacity: 0.75; }
   }
-  .tracking-step-info { display: flex; flex-direction: column; gap: 0.125rem; }
-  .tracking-step-label { font-size: var(--fs-md); font-weight: 500; color: var(--color-foreground); }
-  .tracking-step-time { font-size: var(--fs-xs); color: var(--color-muted-foreground); }
-  .tracking-media { display: flex; gap: 0.5rem; }
-  .media-badge {
-    font-size: var(--fs-xs); font-weight: 600; padding: 0.25rem 0.5rem;
-    border-radius: var(--radius-sm); background: var(--color-muted); color: var(--color-muted-foreground);
+
+  .tracking-step-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
   }
-.tracking-amount { font-size: var(--fs-md); font-weight: 700; color: var(--color-foreground); }
-.tracking-section-label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted-foreground); }
-.tracking-recipient { display: flex; flex-direction: column; gap: 0.25rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 0.5rem; }
-.tracking-recipient-name { font-size: var(--fs-md); font-weight: 600; color: var(--color-foreground); }
-.tracking-recipient-phone { font-size: var(--fs-sm); color: var(--color-muted-foreground); }
-.tracking-recipient-addr { font-size: var(--fs-sm); color: var(--color-muted-foreground); }
-.tracking-gift-note { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 0.5rem; background: color-mix(in srgb, var(--color-primary) 5%, transparent); display: flex; flex-direction: column; gap: 0.25rem; }
-.tracking-gift-msg { font-size: var(--fs-sm); font-style: italic; color: var(--color-foreground); }
-.tracking-comments { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
-.tracking-comments p { font-size: var(--fs-sm); color: var(--color-foreground); margin: 0; }
+
+  .tracking-step-label {
+    font-size: var(--fs-md);
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  .tracking-step-time {
+    font-size: var(--fs-xs);
+    color: var(--color-muted-foreground);
+  }
+
+  .tracking-media {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .media-badge {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-muted);
+    color: var(--color-muted-foreground);
+  }
 </style>

@@ -15,13 +15,14 @@
   const frames = $derived(spinner.frames);
   const interval = $derived(spinner.interval);
   let frame = $state(0);
-
-  const grid = $derived(brailleToGrid(frames[frame] ?? ""));
+  let grid = $state(brailleToGrid(""));
 
   $effect(() => {
     frame = 0;
+    grid = brailleToGrid(frames[0] ?? "");
     const timer = window.setInterval(() => {
       frame = (frame + 1) % frames.length;
+      grid = brailleToGrid(frames[frame] ?? "");
     }, interval);
     return () => window.clearInterval(timer);
   });

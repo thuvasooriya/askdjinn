@@ -22,7 +22,7 @@ import type { Product } from "$lib/shopping-engine";
 import type { ConversationMessage, WireMessage } from "$lib/types";
 
 
-const MAX_STEPS = 8;
+const MAX_STEPS = 12;
 
 class ChatStore {
   isStreaming = $state(false);
@@ -179,7 +179,15 @@ class ChatStore {
       layoutContext: buildLayoutContext(ui.panels, ui.tier, ui.activePanelId),
       visibleProducts: ui.searchThreads.map(t => ({
         query: t.query,
-        products: t.products.slice(0, 6).map(p => ({ id: p.id, name: p.name, price: p.price, currency: p.currency })),
+        products: t.products.slice(0, 6).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          currency: p.currency,
+          highlighted: ui.highlightedIds.has(p.id),
+          highlightReason: ui.annotations.get(p.id),
+          userHighlighted: ui.userHighlights.has(p.id),
+        })),
       })),
       activeProductContext: {
         productDetailId: ui.productDetailId,

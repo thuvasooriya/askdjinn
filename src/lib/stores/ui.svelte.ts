@@ -63,7 +63,13 @@ const DYNAMIC_PANELS_STORE_ID = "dynamic-panels"; // legacy dynamic panels (v1)
 const PANELS_STORE_ID = "panels";                // unified registry (v2)
 const ORDER_RESULT_STORE_ID = "order-result";
 const PRODUCT_DETAIL_STORE_ID = "product-detail-target";
+const PRODUCT_HIGHLIGHTS_STORE_ID = "product-highlights";
 const VERSION = 1;
+
+type ProductHighlightState = {
+  agent: Array<{ id: string; reason?: string }>;
+  user: string[];
+};
 
 export const defaultSearchCriteria: SearchCriteria = {
   q: "",
@@ -147,7 +153,10 @@ class UIStore {
   // Chat is visible only when the conversation panel is actively rendered.
   // If the panel is closed or minimized, AppShell shows the floating AgentBar.
   get conversationVisible(): boolean {
-    return this.panels.some(p => p.type === "conversation" && p.status !== "expired" && !p.minimized);
+    const evictedIds = new Set(this.placement.minimized.map(p => p.id));
+    return this.panels.some(p =>
+      p.type === "conversation" && p.status !== "expired" && !p.minimized && !evictedIds.has(p.id)
+    );
   }
 
   /** Show an agent-driven dynamic panel. Returns a Promise that resolves on
@@ -263,6 +272,7 @@ class UIStore {
       for (const product of thread.products) reg.set(product.id, product);
     }
     this.productRegistry = reg;
+    this.loadHighlights();
 
     // Hydrate the unified registry. Prefer the v2 unified key; fall back to
     // legacy split keys (open-panels + dynamic-panels) and migrate once.
@@ -336,6 +346,13 @@ class UIStore {
 
   isOpen(id: string): boolean { return this.panels.some(p => p.id === id || (p.kind === "static" && p.type === id)); }
   isOpenType(type: string): boolean { return this.panels.some(p => p.type === type); }
+  isVisible(idOrType: string): boolean {
+    const panel = this.panels.find(p => p.id === idOrType)
+      ?? this.panels.toReversed().find(p => p.type === idOrType);
+    if (!panel || panel.status === "expired") return false;
+    return this.placement.visible.some(p => p.id === panel.id);
+  }
+
 
   /** Open a STATIC panel by id (cart, lists, …). Single-instance: if already
    *  open, focus it. Mirrors the registry's open() for the static case. */
@@ -425,6 +442,20 @@ class UIStore {
     else this.openPanel(id);
   }
 
+  /** Menu/collector visibility toggle. Existing panels are never closed here:
+   *  visible -> minimized, minimized/overflow -> focused/restored, absent -> open.
+   *  Closing is reserved for panel close controls and agent-invoked close tools. */
+  togglePanelVisibility(id: PanelId) {
+    const panel = this.panels.find(p => p.id === id)
+      ?? this.panels.toReversed().find(p => p.type === id);
+    if (!panel) {
+      this.openPanel(id);
+      return;
+    }
+    if (this.isVisible(panel.id)) this.minimize(panel.id);
+    else this.focus(panel.id);
+  }
+
   setPanelWidth(id: string, width: number) {
     this.panelWidths = { ...this.panelWidths, [id]: Math.max(280, Math.min(600, width)) };
   }
@@ -441,11 +472,13 @@ class UIStore {
     }
     this.highlightedIds = ids;
     this.annotations = annotations;
+    this.saveHighlights();
   }
 
   clearHighlight() {
     this.highlightedIds = new Set();
     this.annotations = new Map();
+    this.saveHighlights();
   }
 
   toggleUserHighlight(productId: string) {
@@ -453,10 +486,12 @@ class UIStore {
     if (next.has(productId)) next.delete(productId);
     else next.add(productId);
     this.userHighlights = next;
+    this.saveHighlights();
   }
 
   clearUserHighlights() {
     this.userHighlights = new Set();
+    this.saveHighlights();
   }
 
   getUserHighlights(): string[] {
@@ -474,6 +509,12 @@ class UIStore {
 
   dismissAskUser() {
     this.askUser?.resolve("");
+    this.askUser = null;
+  }
+
+  /** Dismiss the question without resolving — used when the model moves on
+   *  (auto-detect from voice) or when the model calls ui_dismiss_ask_user. */
+  autoDismissAskUser() {
     this.askUser = null;
   }
 
@@ -566,6 +607,27 @@ class UIStore {
     persist.save(PRODUCT_CACHE_STORE_ID, VERSION, Array.from(this.productRegistry.values()).slice(-120));
   }
 
+  private loadHighlights() {
+    const stored = persist.load<ProductHighlightState>(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent: [], user: [] });
+    const known = (id: string) => this.productRegistry.has(String(id));
+    const agent = stored.agent.filter(item => known(item.id));
+    const user = stored.user.map(String).filter(known);
+    this.highlightedIds = new Set(agent.map(item => String(item.id)));
+    this.annotations = new Map(agent.flatMap(item => item.reason ? [[String(item.id), item.reason] as const] : []));
+    this.userHighlights = new Set(user);
+  }
+
+  private saveHighlights() {
+    const agent = Array.from(this.highlightedIds)
+      .filter(id => this.productRegistry.has(id))
+      .map(id => ({ id, reason: this.annotations.get(id) }))
+      .slice(0, 12);
+    const user = Array.from(this.userHighlights)
+      .filter(id => this.productRegistry.has(id))
+      .slice(0, 24);
+    persist.save(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent, user });
+  }
+
   getProduct(id: string): Product | undefined {
     // Tolerant lookup: the agent (LLM) often emits purely-numeric product IDs
     // as JSON numbers even though the schema declares them strings. Normalize
@@ -636,6 +698,7 @@ class UIStore {
     this.highlightedIds = new Set();
     this.annotations = new Map();
     this.userHighlights = new Set();
+    persist.clear(PRODUCT_HIGHLIGHTS_STORE_ID);
     this.scrollToId = null;
     this.galleryState = null;
     this.searchThreads = [];

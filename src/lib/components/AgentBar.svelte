@@ -1,24 +1,19 @@
 <script lang="ts">
-    import { ArrowUp, Mic, MicOff } from "@lucide/svelte";
-    import { fade, fly } from "svelte/transition";
-    import { browser } from "$app/environment";
+    import { MicOff } from "@lucide/svelte";
+    import { fade } from "svelte/transition";
     import AgentOrb, { type OrbState } from "./AgentOrb.svelte";
-    import CameraMenu from "./shell/CameraMenu.svelte";
+    import OptionsMenu from "./shell/OptionsMenu.svelte";
+    import ChatComposer from "./shell/ChatComposer.svelte";
     import { useChat } from "$lib/stores/chat.svelte";
     import { useConversation } from "$lib/stores/conversation.svelte";
     import { useLiveVoice } from "$lib/stores/live-voice.svelte";
     import { useProfile } from "$lib/stores/profile.svelte";
     import { useAgentStatus } from "$lib/stores/agent-status.svelte";
-    import { devLog } from "$lib/dev-log";
     import { useUI } from "$lib/stores/ui.svelte";
     import { useMediaAttach } from "$lib/attach-media.svelte";
     import WebcamCaptureModal from "./shell/WebcamCaptureModal.svelte";
     import SpiralArrow from "./SpiralArrow.svelte";
 
-    const reducedMotion = $derived(
-        browser &&
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    );
 
     let {
         liveActive = false,
@@ -43,8 +38,6 @@
     let progressRAF: ReturnType<typeof requestAnimationFrame> | null = null;
     let pressStartTime = 0;
     let inputOpen = $derived(ui.agentInputOpen);
-    let text = $state("");
-    let textarea: HTMLTextAreaElement | undefined = $state();
     const LONG_PRESS_MS = 500;
     const RING_RADIUS = 34;
     const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -144,52 +137,10 @@
         }
         if (!longPressTriggered && e?.type === "pointerup") {
             ui.agentInputOpen = !ui.agentInputOpen;
-            if (ui.agentInputOpen) {
-                setTimeout(() => {
-                    if (textarea) {
-                        textarea.focus();
-                        autoResize();
-                    }
-                }, 100);
-            }
         }
         holdProgress = 0;
     }
 
-    function submit() {
-        const value = text.trim();
-        devLog.uiCommand("agent-bar submit", {
-            hasText: value.length > 0,
-            liveActive,
-            chatStreaming: chat.isStreaming,
-        });
-        if (!value || chat.isStreaming) return;
-        if (liveActive && liveVoice.state === "listening") {
-            liveVoice.sendText(value);
-        } else {
-            chat.send(value);
-        }
-        text = "";
-        if (textarea) textarea.style.height = "auto";
-    }
-
-    function handleKeydown(event: KeyboardEvent) {
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            submit();
-        }
-    }
-
-    function autoResize() {
-        if (!textarea) return;
-        textarea.style.height = "auto";
-        textarea.style.height = Math.min(textarea.scrollHeight, 80) + "px";
-    }
-
-    $effect(() => {
-        void text;
-        autoResize();
-    });
 
     // Media attach hook for live mode
     const media = useMediaAttach({
@@ -237,18 +188,18 @@
                 />
             </div>
 
-            <!-- Camera options button in live mode -->
+            <!-- Options button in live mode (no voice — already live) -->
             <div class="relative" transition:fade={{ duration: 150 }}>
-                <CameraMenu
+                <OptionsMenu
                     {media}
                     align="right"
-                    triggerClass="glass-btn text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+                    triggerClass="glass-btn"
                 />
             </div>
             </div>
     {:else}
         <!-- Regular / Minimal / Expanded Mode -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3" class:agent-bar-expanded={inputOpen}>
             <div class="orb-wrapper">
                 {#if hintVisible}
                   <div class="orb-hint">
@@ -298,75 +249,11 @@
             </div>
 
             {#if inputOpen}
-                <!-- Input bar with integrated send button (only when there is text) -->
-                <div
-                    class="floating-input-bar glass shadow-lg flex items-end"
-                    transition:fly={{
-                        x: 15,
-                        duration: reducedMotion ? 0 : 150,
-                    }}
-                >
-                    {#if conv.pendingImage}
-                        <div
-                            class="pending-preview-wrapper flex-shrink-0"
-                            transition:fade={{ duration: 100 }}
-                        >
-                            <img
-                                src="data:{conv.pendingImage
-                                    .mimeType};base64,{conv.pendingImage
-                                    .base64}"
-                                alt="Attached media"
-                                class="pending-preview-img"
-                            />
-                            <button
-                                type="button"
-                                class="pending-preview-remove"
-                                onclick={() => conv.clearPendingImage()}
-                                aria-label="Remove attachment">×</button
-                            >
-                        </div>
-                    {/if}
-                    <textarea
-                        bind:this={textarea}
-                        bind:value={text}
-                        onkeydown={handleKeydown}
-                        oninput={autoResize}
-                        placeholder="Ask me anything..."
-                        rows="1"
-                        class="bar-input"></textarea>
-                    {#if text.trim() !== ""}
-                        <button
-                            type="button"
-                            onclick={submit}
-                            disabled={chat.isStreaming}
-                            class="bar-send-btn flex items-center justify-center"
-                            aria-label="Send message"
-                            transition:fade={{ duration: 100 }}
-                        >
-                            <ArrowUp class="h-4 w-4" />
-                        </button>
-                    {/if}
-                </div>
-
-                <!-- Camera options button -->
-                <div class="relative" transition:fade={{ duration: 150 }}>
-                    <CameraMenu
-                        {media}
-                        align="right"
-                        triggerClass="glass-btn text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-                    />
-                </div>
-
-                <!-- Mic button (start voice) -->
-                <button
-                    type="button"
-                    onclick={onLiveStart}
-                    class="glass-btn text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]"
-                    aria-label="Start voice"
-                    transition:fade={{ duration: 150 }}
-                >
-                    <Mic class="h-4 w-4" />
-                </button>
+                <ChatComposer
+                    variant="floating"
+                    {liveActive}
+                    {onLiveStart}
+                />
             {/if}
         </div>
     {/if}
@@ -390,6 +277,13 @@
         pointer-events: auto;
     }
 
+    /* When the input is open, give the row a definite width so the composer's
+       flex:1 can actually grow to fill the available mobile viewport. */
+    .agent-bar-expanded {
+        width: calc(100vw - 2rem);
+        max-width: 36rem;
+    }
+
     .press-ring {
         position: absolute;
         top: 50%;
@@ -400,84 +294,6 @@
         pointer-events: none;
     }
 
-    /* Inline floating input bar (deployed AgentBar design) */
-    .floating-input-bar {
-        display: flex;
-        align-items: flex-end;
-        gap: 0.5rem;
-        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border);
-        min-width: 0;
-        flex: 1;
-        max-height: 5rem;
-    }
-    .bar-input {
-        flex: 1;
-        min-width: 0;
-        max-height: 80px;
-        background: transparent;
-        border: none;
-        outline: none;
-        resize: none;
-        font-size: var(--fs-md);
-        line-height: 1.5;
-        padding: 0.25rem 0;
-        color: var(--color-foreground);
-    }
-    .bar-send-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.75rem;
-        height: 1.75rem;
-        border-radius: var(--radius-full);
-        background: var(--color-primary);
-        color: var(--color-primary-foreground);
-        border: none;
-        cursor: pointer;
-        transition:
-            opacity 0.15s,
-            transform 0.1s,
-            background-color 0.15s;
-        flex-shrink: 0;
-    }
-    .bar-send-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    .bar-send-btn:active:not(:disabled) {
-        transform: scale(0.92);
-    }
-    .bar-send-btn:hover:not(:disabled) {
-        opacity: 0.92;
-        transform: scale(1.05);
-    }
-    .pending-preview-wrapper {
-        position: relative;
-    }
-    .pending-preview-img {
-        height: 2.25rem;
-        width: 2.25rem;
-        object-fit: cover;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--color-border);
-    }
-    .pending-preview-remove {
-        position: absolute;
-        top: -0.3rem;
-        right: -0.3rem;
-        width: 1.1rem;
-        height: 1.1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-full);
-        background: var(--color-destructive);
-        color: white;
-        border: none;
-        font-size: 0.8rem;
-    }
     /* ── Orb hint ──────────────────────────────────────────────────────── */
     .orb-wrapper {
         position: relative;

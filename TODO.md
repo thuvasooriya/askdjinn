@@ -1,62 +1,31 @@
-render the pay buttons expiry and stuff in the orders pane
-render the click to pay link inline
+tutorial
+deliveryAddress streetAddress confusion
+check delivery fee beforehand
+agent tools to automatically connect to live mode and disconnect
+tool display cards
+api rate limit notice
+
+why is livemode opening the conversation(chat panel) at start
+
+exciting landing page
+A supernatural being with extraordinary powers that usually takes a human form and serves its summoner.
+
+- [ ] voice assistant hanging without disconnect
+
+can you review the prompts as well. so that the the best use of tools is defined correctly and accurately reflecting the latest state of tools and workflows and capabilities. also ask agent to
+
+- use memory tool and wishlist tool to remember
+
+sometimes the live agent hastly decides something is not done. like it will call
+readcart tool and then add to cart add to cart and say the cart is empty. order, sequences, and workflows of the tools are important so give clear instructions to agent regarding that and similar things to watch out for.
+
+## backlog
+
 phantom products in search results
-inaccuracy of order information in summaries
-
-thumbnail duplication in gallery overlay
 info card on gallery overlay
+do not allow more than one tracking panels doing the same thing at the same time
+more flexible manual intervention searching of products and filtering
 
-create order consistency
+- [ ] display panels (like order-tracking and product-detail) weren't strictly validated by these contracts yet—they blindly trusted the caller (the agent or the UI) to pass the correct payload. To bulletproof the app going forward, the next architectural step would be to add requiredPayload schemas to panel-contracts.ts so ui.open() immediately rejects or auto-fetches missing data instead of rendering an empty shell.
 
-- display panels (like order-tracking and product-detail) weren't strictly validated by these contracts yet—they blindly trusted the caller (the agent or the UI) to pass the correct payload. To bulletproof the app going forward, the next architectural step would be to add requiredPayload schemas to panel-contracts.ts so ui.open() immediately rejects or auto-fetches missing data instead of rendering an empty shell.
-
-### refine homescreen
-
-- [ ] add order tracking card (homescreen specific tool)
-- [ ] add carts card
-
-### refine order tracking panel
-
-- [ ] mark the items that are done in the checking panel with a circular checkmark icon. (incompleted ones will be shown with blank circle i guess ) last completed one will be plusating.
-- [ ] reorder the items to show up from the latest to oldest. so last thing that happened will be displayed the first
-
-### refine product details panel
-
-- [ ] cache product details properly
-- [ ] product image cors issues and fetch issues, thumbnail duplication
-- [ ] what the hell is the summary section for? show the description with good formatting
-- [ ] auto play for images is enabled by default in product details panel, when user manually clicks to a certain image the auto play will be turned off.
-
-### refine products panel
-
-- [ ] do not display threads with no search results in product panel
-
-### refine response bubble
-
-- [ ] bubble dismiss on manual click outside and show a handle like the ones shown in panels on top of the agent bar so that we can show the bubble or expand to chat (handle will be only shown when there is an existing history)
-
-### refine agent personalities
-
-- [ ] consistent voice settings for a specific live agent?
-
-### refine orb animations
-
-- [ ] different colors from the theme for each orb: orange, blue, green, pink
-
-### refine prompts
-
-- [ ] don't say machan to people using english as setting
-- [ ] do not to nag the user to add something in cart.
-
-### safety and cleanup
-
-- [ ] add a confirmation popup to clear all data action
-- [ ] doom loop prevention, max retries for same tool calls, auto disconnect for inactive live agent
-
-- [ ] ttl for response bubbles, view the response bubble again with a chevron on top of the orb or input bar (chevron only shows when there is a session history)
-
-- [ ] searching products with category filter is not returning any appropriate results but the tool is not giving proper instructions to try the search again or something because searching again without category seems to work
-
-- [ ] how do we make the agent only recommend the products that are deliverable to the location the user wants and or or within the time that the user wants
-
-- [ ] how do we view the payment link. can we view it inside a panel as well?
+- [ ] doom loop prevention, max retries for same tool calls

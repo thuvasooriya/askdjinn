@@ -6,7 +6,7 @@
   import { useChat } from "$lib/stores/chat.svelte";
   import { useProfile } from "$lib/stores/profile.svelte";
   import { renderMarkdown } from "$lib/markdown";
-  import { Maximize2, ChevronDown, AlertCircle, Wrench, Sparkles } from "@lucide/svelte";
+  import { Maximize2, ChevronDown, AlertCircle } from "@lucide/svelte";
   import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
   import { browser } from "$app/environment";
   import { fly, fade } from "svelte/transition";
@@ -14,6 +14,8 @@
   import OrderConfirmationCard from "$lib/components/OrderConfirmationCard.svelte";
   import { getCreatedOrderFromToolPart, type ToolCallPart } from "$lib/order/order-render";
   import type { CreatedOrder } from "$lib/order/create-order-client";
+import DeliveryCheckCard from "$lib/components/DeliveryCheckCard.svelte";
+import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
 
   const conv = useConversation();
   const ui = useUI();
@@ -40,8 +42,14 @@
   const isAssistant = $derived(lastTurn?.role === "assistant");
   const text = $derived(lastTurn ? conv.getText(lastTurn) : "");
 
-  const hasPendingToolCall = $derived(liveVoice.log.some(e => e.type === "tool-call" && e.status === "pending"));
-  const isError = $derived(liveVoice.state === "error" || (lastTurn?.parts.some(p => p.type === "tool-call" && p.status === "error") ?? false));
+  const textModePendingTools = $derived(
+    lastTurn?.parts.some(p => p.type === "tool-call" && p.status === "pending") ?? false
+  );
+  const hasPendingToolCall = $derived(
+    liveVoice.log.some(e => e.type === "tool-call" && e.status === "pending")
+    || textModePendingTools
+  );
+  const isError = $derived(liveVoice.state === "error");
 
   const liveState = $derived(liveVoice.state);
   const liveActive = $derived(liveState !== "idle" && liveState !== "error");
@@ -52,7 +60,7 @@
   let collapsed = $state(true);
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Auto-expand only once there's actual content to show (text or tool bursts),
+  // Auto-expand only once there's actual content (text, order, delivery),
   // not the instant a turn starts streaming — mirrors live mode, where the pill
   // stays put until there's something to render. Avoids the empty bubble
   // flashing open the moment the user hits Enter.
@@ -60,6 +68,19 @@
     if (liveActive) return;
     if (lastTurn?.streaming && renderItems.length > 0) {
       collapsed = false;
+    }
+  });
+
+  // Auto-expand when user returns from chat panel with content to show
+  let wasPanelOpen = $state(false);
+  $effect(() => {
+    if (ui.conversationVisible) {
+      wasPanelOpen = true;
+    } else if (wasPanelOpen && collapsed && renderItems.length > 0) {
+      collapsed = false;
+      wasPanelOpen = false;
+      clearTimeout(collapseTimer);
+      collapseTimer = setTimeout(() => { collapsed = true; }, 30000);
     }
   });
 
@@ -103,79 +124,34 @@
   onDestroy(() => clearTimeout(collapseTimer));
 
   // ── ─────────────────────────────────────────────────────────────────────────
-
-  // ── Tool-call grouping ─────────────────────────────────────────────────────
-  // Group consecutive tool-call parts into bursts. Each burst renders as a
-  // single pill showing a spinner (while pending) or completed count.
-  type ToolBurst = {
-    /** First tool-call id — stable key for the group */
-    id: string;
-    /** Number of tool-call parts that are done/error */
-    completed: number;
-    /** True if any tool in this burst is still pending */
-    running: boolean;
-    /** Label of the currently executing tool (first pending one) */
-    activeLabel: string | null;
-  };
-
+  // ── Render items ─────────────────────────────────────────────────────────
   type RenderItem =
     | { type: "text"; text: string }
-    | { type: "tool-burst"; burst: ToolBurst }
-    | { type: "order-confirmation"; order: CreatedOrder };
-
+    | { type: "order-confirmation"; order: CreatedOrder }
+    | { type: "delivery-group"; city: string; rate?: number; dates: Array<{ date: string; available: boolean }> };
   const renderItems = $derived.by((): RenderItem[] => {
     if (!lastTurn) return [];
     const items: RenderItem[] = [];
-    let currentBurst: ToolCallPart[] = [];
-
-    const flushBurst = () => {
-      if (currentBurst.length === 0) return;
-      const running = currentBurst.some(p => p.status === "pending");
-      const completed = currentBurst.filter(p => p.status === "done" || p.status === "error").length;
-      const firstPending = currentBurst.find(p => p.status === "pending");
-      items.push({
-        type: "tool-burst",
-        burst: {
-          id: currentBurst[0].id,
-          completed,
-          running,
-          activeLabel: firstPending ? (firstPending.label ?? firstPending.name) : null,
-        },
-      });
-      currentBurst = [];
-    };
 
     for (const part of lastTurn.parts) {
       if (part.type === "tool-call") {
         const createdOrder = getCreatedOrderFromToolPart(part);
         if (createdOrder) {
-          flushBurst();
           items.push({ type: "order-confirmation", order: createdOrder });
         } else {
-          currentBurst.push(part);
+          const deliveryCheck = getDeliveryCheckFromToolPart(part);
+          if (deliveryCheck) {
+            items.push({ type: "delivery-group", city: deliveryCheck.city, rate: deliveryCheck.rate, dates: deliveryCheck.dates });
+          }
+          // Regular tool calls are shown in the conversation tile — skip here
         }
-      } else if (part.type === "product-results" || part.type === "image" || part.type === "delivery-info") {
-        // Tool output parts belong to the burst — don't break consecutiveness
-        // but don't add to burst either (not tool-calls)
       } else if (part.type === "text") {
-        flushBurst();
         if (part.text) {
           items.push({ type: "text", text: part.text });
         }
       }
     }
-    flushBurst();
     return items;
-  });
-
-  // Label of the first running burst for header status
-  const activeBurstLabel = $derived.by((): string | null => {
-    for (const item of renderItems) {
-      if (item.type === "tool-burst" && item.burst.running && item.burst.activeLabel) {
-        return item.burst.activeLabel;
-      }
-    }
-    return null;
   });
 
   const statusText = $derived.by(() => {
@@ -185,10 +161,22 @@
       if (liveState === "speaking") return "Speaking";
       return "Live";
     }
-    if (chat.isStreaming) return "Thinking";
-    if (agentStatus.isActive) return agentStatus.status.label;
-    if (hasPendingToolCall) return "Searching Kapruka";
-    if (activeBurstLabel) return activeBurstLabel;
+    if (chat.isStreaming) {
+      if (agentStatus.isActive) return agentStatus.status.label;
+      if (hasPendingToolCall) return "Searching Kapruka";
+      return "Thinking";
+    }
+    return null;
+  });
+
+  const statusAnimation = $derived.by(() => {
+    if (liveActive) {
+      if (liveState === "listening") return "dna";
+      if (liveState === "speaking") return "pulse";
+      return "helix";
+    }
+    if (hasPendingToolCall || agentStatus.isActive) return "rain";
+    if (chat.isStreaming) return "cascade";
     return null;
   });
 
@@ -216,16 +204,19 @@
   }
 </script>
 
-{#if !ui.conversationVisible && (visible || statusText) && !ui.askUser}
+{#if !ui.conversationVisible && (visible || statusText || conv.turns.length > 0) && !ui.askUser}
   <div bind:this={containerEl} class="floating-bubble-container" transition:fly={{ y: 20, duration: reducedMotion ? 0 : 250 }}>
     {#if collapsed}
-      <!-- Collapsed pill — tap to expand -->
       <button type="button" class="status-pill glass shadow-md" onclick={expand}>
         {#if statusText}
           {#if isError}
             <AlertCircle class="h-3 w-3 text-red-500" />
-          {:else}
-            <BrailleSpinner name="helix" size="sm" label={statusText} />
+          {:else if statusAnimation}
+            {#key statusAnimation}
+              <div transition:fade={{ duration: reducedMotion ? 0 : 200 }}>
+                <BrailleSpinner name={statusAnimation} size="sm" label={statusText} />
+              </div>
+            {/key}
           {/if}
         {/if}
         <span class="status-text">{statusText ?? profile.agent?.name ?? 'Agent'}</span>
@@ -242,8 +233,12 @@
             <div class="header-status flex items-center gap-1 text-[10px] font-semibold text-[var(--color-muted-foreground)]">
               {#if isError}
                 <AlertCircle class="h-3 w-3 text-red-500" />
-              {:else}
-                <Sparkles class="h-3 w-3 text-[var(--color-primary)] animate-pulse" />
+              {:else if statusAnimation}
+                {#key statusAnimation}
+                  <div transition:fade={{ duration: reducedMotion ? 0 : 200 }}>
+                    <BrailleSpinner name={statusAnimation} size="sm" label={statusText} />
+                  </div>
+                {/key}
               {/if}
               <span>{statusText}</span>
             </div>
@@ -267,23 +262,10 @@
                 <div class="prose prose-sm dark:prose-invert bubble-text">
                   {@html renderMarkdown(item.text)}
                 </div>
-              {:else if item.type === "tool-burst"}
-                <span
-                  class="tool-burst-pill"
-                  class:tool-burst-pill--running={item.burst.running}
-                  aria-label={item.burst.running ? item.burst.activeLabel ?? `Running ${item.burst.completed + 1}` : `${item.burst.completed} tools`}
-                >
-                  <Wrench class="h-3 w-3" />
-                  {#if item.burst.running}
-                    <BrailleSpinner name="orbit" size="sm" label={item.burst.activeLabel ?? "Running"} />
-                  {:else}
-                    <span class="tool-burst-count" transition:fade={{ duration: reducedMotion ? 0 : 200 }}>
-                      {item.burst.completed}
-                    </span>
-                  {/if}
-                </span>
               {:else if item.type === "order-confirmation"}
                 <OrderConfirmationCard order={item.order} compact />
+              {:else if item.type === "delivery-group"}
+                <DeliveryCheckCard city={item.city} rate={item.rate} dates={item.dates} />
               {/if}
             {/each}
           {/if}
@@ -389,33 +371,6 @@
   }
   .bubble-text :global(p:last-child) {
     margin-bottom: 0;
-  }
-  .tool-burst-pill + .bubble-text,
-  .bubble-text + .tool-burst-pill {
-    margin-top: 0.25rem;
-  }
-  .tool-burst-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-full);
-    border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-    background: color-mix(in srgb, var(--color-muted) 60%, transparent);
-    color: var(--color-muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    vertical-align: middle;
-    margin-block: 0.125rem;
-    transition: border-color 0.2s, color 0.2s;
-  }
-  .tool-burst-pill--running {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-  .tool-burst-count {
-    min-width: 0.75rem;
-    text-align: center;
-    line-height: 1;
+
   }
 </style>

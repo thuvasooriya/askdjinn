@@ -3,6 +3,7 @@
   import { proxiedSrc } from "$lib/image";
   import type { Product } from "$lib/shopping-engine";
   import { untrack } from "svelte";
+  import { fade } from "svelte/transition";
   import {
     ShoppingBag,
     Check,
@@ -18,6 +19,7 @@
     ChevronRight,
   } from "@lucide/svelte";
   import { useLists } from "$lib/stores/lists.svelte";
+  import { toasts } from "$lib/ui/toast";
 
   let {
     product = null as Product | null,
@@ -75,7 +77,6 @@
   });
   const priced = $derived(product?.price != null);
   const liked = $derived(product ? lists.isLiked(product.id) : false);
-
   const displayImages = $derived.by(() => {
     if (!product) return [];
     const variantImg = (
@@ -158,7 +159,10 @@
 
   function handleLike(e: MouseEvent) {
     e.stopPropagation();
-    if (product) lists.toggleLike(product);
+    if (!product) return;
+    const wasLiked = lists.isLiked(product.id);
+    lists.toggleLike(product);
+    toasts.success(wasLiked ? "Removed from wishlist" : "Added to wishlist");
   }
 
   function handleImageClick() {
@@ -193,6 +197,10 @@
   function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
+
+  function sentenceCase(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
 </script>
 
 {#if product}
@@ -211,12 +219,17 @@
             disabled={!onGalleryOpen}
             aria-label="Open gallery"
           >
-            <img
-              src={proxiedSrc(displayImages[activeImg] ?? displayImages[0])}
-              alt={product.name}
-              class="main-image"
-              onerror={() => (imgError = true)}
-            />
+            <div class="image-fade-wrap">
+              {#key activeImg}
+                <img
+                  src={proxiedSrc(displayImages[activeImg] ?? displayImages[0])}
+                  alt={product.name}
+                  class="main-image"
+                  onerror={() => (imgError = true)}
+                  transition:fade={{ duration: 250 }}
+                />
+              {/key}
+            </div>
           </button>
 
           {#if displayImages.length > 1}
@@ -368,43 +381,24 @@
           </details>
         {/if}
 
-        {#if product.description}
-            <details class="section" open>
-            <summary class="section-summary">
-              <span class="section-title">Description</span>
-              <ChevronDown class="section-chevron" />
-            </summary>
-            <div class="section-content">
-              <p class="desc-text">{product.description}</p>
-            </div>
-          </details>
-        {/if}
-
         {#if product.attributes}
-          <details class="section" open>
-            <summary class="section-summary">
-              <span class="section-title">Details</span>
-              <ChevronDown class="section-chevron" />
-            </summary>
+          <div class="section">
             <div class="section-content">
               <div class="attrs-grid">
                 {#each Object.entries(product.attributes) as [key, value]}
-                  {#if value != null && value !== ''}
+                  {#if value != null && value !== '' && !(key === 'subtype' && (product.attributes?.type ?? '').toLowerCase() === value.toLowerCase())}
                     <span class="attr-label">{capitalize(key)}</span>
-                    <span class="attr-value">{value}</span>
+                    <span class="attr-value">{sentenceCase(value)}</span>
                   {/if}
                 {/each}
               </div>
             </div>
-          </details>
+          </div>
         {/if}
 
+
         {#if hasVariants}
-          <details class="section" open>
-            <summary class="section-summary">
-              <span class="section-title">Options</span>
-              <ChevronDown class="section-chevron" />
-            </summary>
+          <div class="section">
             <div class="section-content">
               <div class="variants-row">
                 {#each product.variants as variant (variant.id)}
@@ -418,50 +412,56 @@
                     class="variant-chip {variant.inStock === false ? 'variant-disabled' : ''} {selectedVariantId === variant.id ? 'variant-active' : ''}"
                     disabled={variant.inStock === false}
                   >
-                    <span class="variant-name">{variant.name}</span>
-                    {#if variant.price}
+                    {#if /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(variant.name)}
+                      <span class="color-swatch" style="background: {variant.name}"></span>
+                    {/if}
+                    <span class="variant-name" class:visually-hidden={/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(variant.name)}>{variant.name}</span>
+                    {#if variant.inStock === false}
+                      <span class="variant-unavailable">Unavailable</span>
+                    {:else if variant.price}
                       <span class="variant-price">{formatMoney(variant.price, product.currency)}</span>
                     {/if}
                   </button>
                 {/each}
               </div>
             </div>
-          </details>
-        {/if}
-      </div>
-
-      <div class="action-bar">
-        <div class="action-bar-inner">
-          {#if selectedVariant}
-            <p class="selected-variant-label">{selectedVariant.name}</p>
-          {/if}
-          <div class="action-buttons">
-            <button
-              type="button"
-              class="add-btn {added ? 'added' : ''}"
-              onclick={handleAdd}
-              disabled={displayInStock === false}
-            >
-              {#if added}
-                <Check class="btn-icon" />
-                <span>Added</span>
-              {:else}
-                <ShoppingBag class="btn-icon" />
-                <span>Add to Cart</span>
-              {/if}
-            </button>
-            {#if product.productUrl}
-              <a
-                href={product.productUrl}
-                target="_blank"
-                rel="noreferrer"
-                class="view-link"
-              >
-                <ExternalLink class="btn-icon" />
-                <span>View on site</span>
-              </a>
-            {/if}
           </div>
+        {/if}
+
+        {#if product.description}
+          <div class="section-card">
+            <h3 class="section-card-title">Description</h3>
+            <p class="desc-text">{product.description}</p>
+          </div>
+        {/if}
+        </div>
+      <div class="action-bar">
+        <div class="action-buttons">
+          <button
+            type="button"
+            class="add-btn {added ? 'added' : ''}"
+            onclick={handleAdd}
+            disabled={displayInStock === false}
+          >
+            {#if added}
+              <Check class="btn-icon" />
+              <span>Added</span>
+            {:else}
+              <ShoppingBag class="btn-icon" />
+              <span>{selectedVariant ? `Add ${selectedVariant.name}` : 'Add to Cart'}</span>
+            {/if}
+          </button>
+          {#if product.productUrl}
+            <a
+              href={product.productUrl}
+              target="_blank"
+              rel="noreferrer"
+              class="view-link"
+            >
+              <ExternalLink class="btn-icon" />
+              <span>View on site</span>
+            </a>
+          {/if}
         </div>
       </div>
     </div>
@@ -475,20 +475,33 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    overflow: hidden;
+    /* Vertical: whole panel scrolls as one column (image + info), so a tall
+       square image can be scrolled past instead of pinning the viewport. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: var(--color-surface, var(--color-background));
   }
 
   .product-detail.landscape {
     flex-direction: row;
+    /* Landscape keeps the image as a fixed sidebar; info scrolls internally. */
+    overflow: hidden;
   }
 
   .detail-content {
     display: flex;
-    flex: 1;
+    /* grow to fill when content is short, but never shrink below content →
+       when content is tall the column overflows and .product-detail scrolls. */
+    flex: 1 0 auto;
     min-width: 0;
-    min-height: 0;
     flex-direction: column;
+  }
+
+  .product-detail.landscape .detail-content {
+    min-height: 0;
+    max-height: 100%;
+    flex-shrink: 1;
+    overflow: hidden;
   }
 
   /* ── Image Section ── */
@@ -512,6 +525,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1 / 1;
+    max-height: 45vh;
     background:
       radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--color-muted) 70%, transparent), transparent 72%),
       var(--color-muted);
@@ -524,6 +538,7 @@
     flex: 1;
     min-height: 0;
     aspect-ratio: auto;
+    max-height: none;
   }
 
   .main-image-area.clickable {
@@ -544,6 +559,15 @@
     cursor: default;
   }
 
+  .image-fade-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  .image-fade-wrap :global(.main-image) {
+    position: absolute;
+    inset: 0;
+  }
   .main-image {
     width: 100%;
     height: 100%;
@@ -733,11 +757,16 @@
   .info-section {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
     padding: 0.75rem 0.75rem 0;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Landscape: image is a fixed sidebar, so info scrolls inside its column. */
+  .product-detail.landscape .info-section {
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
   }
 
   /* ── Info Header ── */
@@ -746,22 +775,26 @@
     flex-direction: column;
     gap: 0.375rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--color-border);
-    margin-bottom: 0;
   }
 
   .breadcrumb {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    font-size: var(--fs-xs);
-    color: var(--color-muted-foreground);
+    gap: 0;
     margin: 0;
   }
-
-  .crumb-sep {
+  .crumb {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--color-muted-foreground);
-    opacity: 0.5;
+    background: color-mix(in srgb, var(--color-muted-foreground) 10%, transparent);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-full);
+  }
+  .crumb-sep {
+    display: none;
   }
 
   .product-name {
@@ -893,7 +926,6 @@
 
   /* ── Collapsible Sections ── */
   .section {
-    border-bottom: 1px solid var(--color-border);
   }
 
   .section-summary {
@@ -935,7 +967,7 @@
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows 0.25s ease, padding 0.25s ease;
-    padding: 0 0 0.625rem;
+    padding: 0.25rem 0.75rem;
   }
 
   details:not([open]) .section-content {
@@ -958,35 +990,67 @@
     background: color-mix(in srgb, var(--color-primary) 5%, transparent);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
-
-  /* ── Description ── */
   .desc-text {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-md);
     line-height: 1.6;
     color: var(--color-muted-foreground);
     margin: 0;
+    white-space: pre-wrap;
+    text-align: justify;
   }
 
-  /* ── Attributes Grid ── */
+  /* ── Description Card ── */
+  .section-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 0.25rem 0.75rem;
+    background: color-mix(in srgb, var(--color-muted) 20%, transparent);
+    margin: 0.5rem 0;
+  }
+  .section-card-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+    margin: 0.5rem 0;
+  }
+
+  /* ── Attributes Table ── */
   .attrs-grid {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.25rem 0.75rem;
-    align-items: baseline;
+    grid-template-columns: minmax(max-content, 5rem) 1fr;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: visible;
   }
 
   .attr-label {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
     font-size: var(--fs-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-muted-foreground);
     white-space: nowrap;
+    background: color-mix(in srgb, var(--color-muted) 25%, transparent);
+    line-height: 1.3;
   }
 
   .attr-value {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--fs-sm);
     color: var(--color-foreground);
+    line-height: 1.3;
+  }
+
+  /* Remove bottom border from last row cells */
+  .attr-label:nth-last-child(2),
+  .attr-value:last-child {
+    border-bottom: none;
   }
 
   /* ── Variant Chips ── */
@@ -1030,9 +1094,44 @@
     font-weight: 600;
   }
 
+  .color-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px var(--color-border), inset 0 0 0 1px rgba(0,0,0,0.08);
+    margin-right: 0.25rem;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .variant-unavailable {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--color-muted-foreground);
+    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    margin-left: auto;
+  }
+
   .variant-chip.variant-disabled {
-    opacity: 0.45;
+    opacity: 0.5;
     cursor: not-allowed;
+    background: color-mix(in srgb, var(--color-muted) 15%, transparent);
+    border-color: color-mix(in srgb, var(--color-border) 50%, transparent);
+  }
+  .variant-chip.variant-disabled .color-swatch {
+    opacity: 0.4;
   }
 
   .variant-name {
@@ -1045,28 +1144,43 @@
     margin-left: auto;
   }
 
-  /* ── Selected Variant Label ── */
-  .selected-variant-label {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--color-muted-foreground);
-    margin: 0 0 0.25rem;
-    text-align: center;
-  }
 
   /* ── Sticky Action Bar ── */
+  /* Sticky so Add-to-cart stays reachable while the column scrolls in vertical. */
   .action-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     flex-shrink: 0;
     padding: 0.75rem;
     border-top: 1px solid var(--color-border);
     background: var(--color-surface, var(--color-background));
   }
 
-  .action-bar-inner {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  .product-detail.landscape .action-bar {
+    position: static;
   }
+
+  /* Low-height landscape: compact action bar */
+  @media (max-height: 500px) {
+    .product-detail.landscape .action-bar {
+      padding: 0.375rem 0.5rem;
+    }
+    .product-detail.landscape .add-btn {
+      height: 2rem;
+      font-size: var(--fs-xs);
+      padding: 0 0.625rem;
+    }
+    .product-detail.landscape .view-link {
+      height: 2rem;
+      font-size: var(--fs-xs);
+      padding: 0 0.625rem;
+    }
+    .product-detail.landscape .action-buttons {
+      gap: 0.25rem;
+    }
+  }
+
 
   .action-buttons {
     display: flex;
@@ -1156,4 +1270,5 @@
     .carousel-btn:hover { transform: translateY(-50%); }
     .add-btn:hover:not(:disabled) { transform: none; }
   }
+
 </style>

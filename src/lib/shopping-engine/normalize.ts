@@ -123,7 +123,7 @@ export function normalizeTracking(result: unknown): ShoppingResult<TrackingResul
       pnref: getString(data, ["pnref", "reference", "ref"]),
       recipient: recipientObj ? {
         name: getString(recipientObj, ["name", "full_name", "fullName"]),
-        phone: getString(recipientObj, ["phone", "mobile", "contact"]),
+        phone: (getString(recipientObj, ["phone", "mobile", "contact"]) ?? "").replace(/<br\s*\/?>?/gi, "").trim() || undefined,
         address: getString(recipientObj, ["address", "street", "delivery_address", "deliveryAddress"]),
         city: getString(recipientObj, ["city", "delivery_city", "deliveryCity"]),
       } : undefined,
@@ -358,6 +358,9 @@ function normalizeAttributes(record: Record<string, unknown>, parsed?: ParsedDes
   result.type = result.type ?? result.productType ?? result.category ?? parsed?.type;
   result.subtype = result.subtype ?? result.subType ?? result.subCategory ?? parsed?.subtype;
   result.weight = result.weight ?? result.shippingWeight ?? parsed?.weight;
+  // Filter out zero/placeholder weight — Kapruka returns "0" for items where
+  // shipping weight isn't tracked, which is meaningless in the UI.
+  if (result.weight === "0" || result.weight === "0.0") delete result.weight;
   result.vendor = result.vendor ?? result.seller ?? result.brand ?? result.supplier;
   result.color = result.color ?? result.colour ?? parsed?.color;
   result.flavor = result.flavor ?? result.flavour ?? result.taste ?? parsed?.flavor;

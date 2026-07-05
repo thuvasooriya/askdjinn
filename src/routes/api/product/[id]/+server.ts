@@ -16,9 +16,10 @@ export const GET: RequestHandler = async ({ params, request }) => {
     if (!productId) return Response.json({ error: "Product ID is required" }, { status: 400 });
 
     const raw = await callMcpTool("kapruka_get_product", { product_id: productId });
+    if (typeof raw === "object" && raw !== null) {
+      console.log("[djinn] kapruka_get_product raw:", JSON.stringify(raw, null, 2));
+    }
     const normalized = normalizeProductDetail(raw);
-    if (!normalized.ok) return Response.json({ error: normalized.error.message, product: null }, { status: 502 });
-    if (!normalized.data.product) return Response.json({ error: "Product not found", product: null }, { status: 404 });
     return Response.json(normalized.data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Product lookup failed";

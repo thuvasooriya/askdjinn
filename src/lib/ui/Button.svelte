@@ -2,13 +2,11 @@
     import { tv, type VariantProps } from "tailwind-variants";
 
     export const buttonVariants = tv({
-        base: "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:pointer-events-none disabled:opacity-40 active:scale-[0.97] cursor-pointer",
+        base: "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:pointer-events-none disabled:opacity-40 active:scale-[0.97] cursor-pointer",
         variants: {
             variant: {
-                primary:
-                    "gradient-primary text-[var(--color-primary-foreground)] shadow-float hover:shadow-glow",
-                secondary:
-                    "bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-elevated)]",
+                primary: "frosted-primary",
+                secondary: "frosted-secondary",
                 outline:
                     "border border-[var(--color-border)] bg-transparent text-[var(--color-foreground)] hover:bg-[var(--color-muted)]",
                 ghost: "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
@@ -36,23 +34,33 @@
 
 <script lang="ts">
     import type { HTMLButtonAttributes } from "svelte/elements";
-    import type { Snippet } from "svelte";
+    import type { Component, Snippet } from "svelte";
     import { cn } from "$lib/utils";
 
     let {
         class: className,
         variant = "primary" as ButtonVariant,
         size = "md" as ButtonSize,
+        icon: Icon,
+        iconPosition = "left",
         children,
         ...restProps
     }: {
         class?: string;
         variant?: ButtonVariant;
         size?: ButtonSize;
+        icon?: Component;
+        iconPosition?: "left" | "right";
         children?: Snippet;
     } & HTMLButtonAttributes = $props();
 </script>
 
 <button class={cn(buttonVariants({ variant, size }), className)} {...restProps}>
+    {#if Icon && iconPosition === "left"}
+        <Icon class="h-4 w-4 shrink-0" />
+    {/if}
     {@render children?.()}
+    {#if Icon && iconPosition === "right"}
+        <Icon class="h-4 w-4 shrink-0" />
+    {/if}
 </button>

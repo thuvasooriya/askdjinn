@@ -12,11 +12,14 @@
     } from "@lucide/svelte";
     import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
     import { useSession, type CompletedOrderRecord, type CreatedOrderRecord } from "$lib/stores/session.svelte";
+    import { useCart } from "$lib/stores/cart.svelte";
+    import type { Product } from "$lib/shopping-engine";
     import { formatMoney } from "$lib/money";
     import { toasts } from "$lib/ui/toast";
     import PanelHeader from "$lib/ui/PanelHeader.svelte";
     import Button, { buttonVariants } from "$lib/ui/Button.svelte";
     import { useUI } from "$lib/stores/ui.svelte";
+    import PanelEmptyState from "$lib/ui/PanelEmptyState.svelte";
 
     const ORDER_STATUS_TTL_MS = 5 * 60 * 1000;
 
@@ -25,6 +28,7 @@
     let refreshErrors = $state<Record<string, string>>({});
 
     const ui = useUI();
+    const cart = useCart();
     const session = useSession();
     const orders = $derived(session.orderRecords);
     const createdOrders = $derived(session.createdOrders);
@@ -57,6 +61,58 @@
         return Number.isFinite(expiry) && Date.now() > expiry;
     }
 
+
+    function hasRetryData(order: CreatedOrderRecord): boolean {
+        return Boolean(order.payload && order.cartSnapshot?.length);
+    }
+
+    function createRetryPanelData(order: CreatedOrderRecord): Record<string, unknown> | null {
+        const payload = order.payload;
+        if (!payload) return null;
+        return {
+            recipientName: payload.recipient.name,
+            recipientPhone: payload.recipient.phone,
+            streetAddress: payload.delivery.address,
+            deliveryCity: payload.delivery.city,
+            deliveryDate: payload.delivery.date,
+            senderName: payload.sender.name,
+            giftMessage: payload.gift_message ?? "",
+            retryFromOrderRef: order.orderRef,
+        };
+    }
+
+    function restoreCartSnapshot(order: CreatedOrderRecord): boolean {
+        if (!order.cartSnapshot?.length) return false;
+        cart.clear();
+        for (const item of order.cartSnapshot) {
+            const quantity = Number.isFinite(item.quantity) ? Math.max(1, Math.floor(item.quantity)) : 1;
+            const product: Product = {
+                id: item.productId,
+                name: item.name,
+                price: item.price,
+                currency: item.currency ?? "LKR",
+                imageUrl: item.imageUrl,
+            };
+            ui.registerProduct(product);
+            cart.addItem(product, quantity);
+        }
+        return true;
+    }
+
+    function editAndRetryCreatedOrder(order: CreatedOrderRecord) {
+        const data = createRetryPanelData(order);
+        if (!data || !restoreCartSnapshot(order)) {
+            toasts.error("Saved order details are unavailable for this order");
+            return;
+        }
+        ui.open("create-order", { kind: "dynamic", title: `Retry ${order.orderRef}`, data });
+        toasts.success("Order restored. Review details before creating a new payment link.");
+    }
+
+    function openPaymentLink(url?: string) {
+        if (!url) return;
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
     function isRefreshing(orderNumber: string): boolean {
         return refreshingIds.has(orderNumber);
     }
@@ -247,16 +303,10 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-    <PanelHeader title="Orders" />
+    <PanelHeader title="Orders" icon={Package} />
 
     {#if orders.length === 0}
-        <div class="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
-            <Package class="mb-3 h-10 w-10 text-[var(--color-muted-foreground)]/30" />
-            <p class="text-sm font-medium text-[var(--color-muted-foreground)]">No orders yet</p>
-            <p class="mt-1 text-xs text-[var(--color-muted-foreground)]/70">
-                Created orders and tracked orders will appear here.
-            </p>
-        </div>
+        <PanelEmptyState icon={Package} title="No orders yet" description="Created orders and tracked orders will appear here." />
     {:else}
         <div class="flex-1 overflow-y-auto p-3">
             <div class="space-y-3">
@@ -289,17 +339,33 @@
                                             This is a click-to-pay order. Tracking starts only after payment creates a completed order number.
                                         </p>
                                     </div>
-                                    {#if order.paymentUrl && !isCreatedExpired(order)}
-                                        <a
-                                            href={order.paymentUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class={buttonVariants({ variant: "outline", size: "sm" }) +
-                                                " h-auto gap-1 px-2.5 py-1 text-[10px] border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"}
-                                        >
-                                            <ExternalLink class="h-3 w-3" />
-                                            Pay
-                                        </a>
+                                    {#if (order.paymentUrl && !isCreatedExpired(order)) || hasRetryData(order)}
+                                        <div class="flex shrink-0 flex-col items-end gap-1.5">
+                                            {#if order.paymentUrl && !isCreatedExpired(order)}
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    class="h-auto gap-1 px-2.5 py-1 text-[10px] border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+                                                    onclick={() => openPaymentLink(order.paymentUrl)}
+                                                >
+                                                    <ExternalLink class="h-3 w-3" />
+                                                    Pay
+                                                </Button>
+                                            {/if}
+                                            {#if hasRetryData(order)}
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    class="h-auto gap-1 px-2.5 py-1 text-[10px]"
+                                                    onclick={() => editAndRetryCreatedOrder(order)}
+                                                >
+                                                    <RefreshCw class="h-3 w-3" />
+                                                    Edit & retry
+                                                </Button>
+                                            {/if}
+                                        </div>
                                     {/if}
                                 </div>
                             </div>
@@ -353,7 +419,7 @@
                                         {/if}
                                         {#if trackingSteps(order).length > 0}
                                             <div class="mt-2 space-y-1">
-                                                {#each trackingSteps(order).slice(0, 3) as step, i (i)}
+                                                {#each trackingSteps(order).slice(0, 1) as step, i (i)}
                                                     <div class="flex items-center gap-1.5 text-[10px] text-[var(--color-muted-foreground)]">
                                                         {#if i === 0}
                                                             <CheckCircle2 class="h-3 w-3 text-[var(--color-success)]" />

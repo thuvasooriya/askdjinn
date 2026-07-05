@@ -536,3 +536,95 @@ For completeness, the application layers additional transient and communication 
 - **Tool Linkage**: Bumps statuses dynamically as tools are executed (e.g. `searchProducts` triggers `"searching"`, `createOrder` triggers `"thinking"`).
 
 Agent status store should be modified a bit to respect tool names as is. so no need to rephrase it just displaying the tool names in the status pill when they are being called is fine
+
+---
+
+## Tool Chip Display Conventions
+
+Each tool call renders as a single inline chip in the chat panel and the
+floating response bubble. The format is:
+
+    [verb] [subject]
+
+No summary, no detail, no multi-line layout. All extra info (complete args,
+result) lives behind a click-to-reveal popup.
+
+### Chip format
+
+| State     | Display                                        |
+|-----------|------------------------------------------------|
+| Pending   | Spinner + `[verb]ing...` (present participle)  |
+| Done      | Done-color border + `[verb]ed [subject]`       |
+| Error     | Error-color border + `Failed to [verb]`        |
+
+Subject is elided to fit one line. Full content accessible on click.
+
+### Verb + subject by tool
+
+| Tool                       | Verb (past)      | Subject field             | Notes                                      |
+|----------------------------|------------------|---------------------------|--------------------------------------------|
+| `product_search`           | Searched         | `args.q`                  |                                            |
+| `product_get_details`      | Loaded           | `args.product_id`         |                                            |
+| `product_highlight`        | Highlighted      | `args.items.length` count | "Highlighted 3"                            |
+| `product_clear_highlight`  | Cleared          | —                         | "Cleared highlights"                       |
+| `product_open_detail`      | Opened           | `args.product_id`         |                                            |
+| `product_close_detail`     | Closed           | —                         | "Closed details"                           |
+| `product_scroll_to`        | Scrolled to      | `args.product_id`         |                                            |
+| `product_gallery_open`     | Opened gallery   | —                         | "Opened gallery"                           |
+| `product_gallery_close`    | Closed gallery   | —                         | "Closed gallery"                           |
+| `product_gallery_navigate` | Navigated to     | `args.image_index`        | "Image 3"                                  |
+| `product_list_categories`  | Listed           | —                         | "Listed categories"                        |
+| `product_get_user_highlights` | Read         | —                         | "Read highlights"                          |
+| `cart_add`                 | Added to cart    | `args.product_id`         |                                            |
+| `cart_remove`              | Removed          | `args.product_id`         |                                            |
+| `cart_update_quantity`     | Updated          | `args.product_id`         |                                            |
+| `cart_get_contents`        | Checked          | —                         | "Checked cart"                             |
+| `delivery_check`           | Checked delivery | `args.city`               |                                            |
+| `delivery_list_cities`     | Searched cities  | `args.query`              |                                            |
+| `order_create`             | Created order    | —                         | Shown as OrderConfirmationCard instead     |
+| `order_track`              | Tracked          | `args.order_number`       |                                            |
+| `order_list`               | Listed orders    | —                         | "Listed orders"                            |
+| `order_get_created`        | Loaded           | `args.order_ref`          | "Loaded order ref"                         |
+| `wishlist_add`             | Liked            | `args.product_id`         |                                            |
+| `memory_save_fact`         | Saved            | —                         | "Saved a fact"                             |
+| `memory_forget_all`        | Forgotten        | —                         | "Forgot everything"                        |
+| `web_search`               | Searched         | `args.query`              |                                            |
+| `web_fetch_url`            | Fetched          | `args.url`                |                                            |
+| `datetime_now`             | Checked time     | —                         | "Checked time"                             |
+| `address_list`             | Listed           | —                         | "Listed addresses"                         |
+| `address_add`              | Saved address    | `args.label`              |                                            |
+| `address_remove`           | Removed address  | —                         | "Removed address"                          |
+| `address_set_default`      | Set default      | —                         | "Set default address"                      |
+| `panel_open`               | Opened           | `args.type`               |                                            |
+| `panel_close`              | Closed           | —                         | "Closed panel"                             |
+| `panel_focus`              | Focused          | —                         | "Focused panel"                            |
+| `panel_minimize`           | Minimized        | —                         | "Minimized panel"                          |
+| `panel_fill_field`         | Filled           | `args.key`                |                                            |
+| `panel_click_action`       | Action           | `args.action`             |                                            |
+| `panel_verify`             | Verified         | —                         | "Verified panel"                           |
+| `ui_ask_user`              | Asked            | —                         | Shows question in popup                    |
+
+### Click popup content
+
+When the user clicks a tool chip:
+
+```
+┌─────────────────────────────────┐
+│  [tool name]                    │  <- heading
+├─────────────────────────────────┤
+│  Args                           │
+│  ┌───────────────────────────┐  │
+│  │ product_id   "abc123"     │  │  <- key-value table
+│  │ quantity     2            │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  Result (collapsible)           │
+│  ┌───────────────────────────┐  │
+│  │ { "status": "ok", ... }   │  │  <- formatted JSON
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+- Args: key-value table (8 max) for tools with meaningful parameters; falls back to `Object.entries(args)`.
+- Result: formatted JSON. Collapsible for large responses.
+- Error tools: error message prominent at the top, result below.
