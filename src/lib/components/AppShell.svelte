@@ -14,6 +14,8 @@
   import { buildClientToolContext } from "$lib/ai/client-context";
   import { flyToCart } from "$lib/cart-animation";
   import type { PanelType } from "$lib/panel-contracts";
+  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import type { StorageResetNotice } from "$lib/stores/persistence";
   import HomeHero from "$lib/components/shell/HomeHero.svelte";
   import CanvasGrid from "$lib/components/shell/CanvasGrid.svelte";
   import FloatingResponse from "$lib/components/shell/FloatingResponse.svelte";
@@ -36,6 +38,16 @@
   let liveActive = $state(false);
   let cartBumping = $state(false);
   let cartButtonEl: HTMLElement | undefined = $state();
+  let resetNotice = $state<StorageResetNotice | null>(null);
+  let resetPromptOpen = $state(false);
+
+  $effect(() => {
+    if (resetNotice) return;
+    const notice = persist.storageResetNotice();
+    if (!notice) return;
+    resetNotice = notice;
+    resetPromptOpen = true;
+  });
 
   $effect(() => {
     const state = liveVoice.state;
@@ -110,7 +122,20 @@
 
   function clearCache() {
     persist.clearAll();
+    persist.markStorageCurrent();
     window.location.reload();
+  }
+
+  function resetStaleStorage() {
+    persist.clearAll();
+    persist.markStorageCurrent();
+    window.location.reload();
+  }
+
+  function resetPromptDescription(notice: StorageResetNotice | null): string {
+    if (!notice) return "";
+    const stored = notice.storedEpoch == null ? "an older unversioned cache" : `storage epoch ${notice.storedEpoch}`;
+    return `This browser has ${stored}, while this build expects storage epoch ${notice.currentEpoch}. Resetting local app data clears old cache entries that can conflict with the latest order and panel state.`;
   }
 
   const hasDisplayedPanels = $derived(ui.placement.visible.length > 0);
@@ -156,6 +181,16 @@
   }
 </script>
 <svelte:window oncontextmenu={(e) => e.preventDefault()} />
+
+<ConfirmDialog
+  bind:open={resetPromptOpen}
+  title="Reset local app data?"
+  description={resetPromptDescription(resetNotice)}
+  confirmLabel="Reset app data"
+  cancelLabel="Continue for now"
+  variant="destructive"
+  onConfirm={resetStaleStorage}
+/>
 
 {#if profile.hydrated && !profile.onboarded}
   <Onboarding />

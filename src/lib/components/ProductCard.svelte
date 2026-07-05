@@ -131,22 +131,9 @@
       {/if}
     </div>
 
-    <!-- Like button -->
-    <button
-      onclick={handleLike}
-      type="button"
-      class="product-card-like-btn"
-      aria-label="Toggle liked"
-    >
-      <Heart class="h-3.5 w-3.5 {liked ? 'fill-[var(--color-destructive)] text-[var(--color-destructive)]' : 'text-white'}" />
-    </button>
-
     <!-- Info section -->
     <div class="product-card-info">
-      <h3 class="product-card-name">{product.name}</h3>
-      {#if product.category}
-        <span class="product-card-category">{product.category}</span>
-      {/if}
+      <h3 class="product-card-name" title={product.name}>{product.name}</h3>
       <div class="product-card-price-row">
         <div class="product-card-price">
           {#if hasVariantPriceRange}
@@ -162,6 +149,14 @@
             <span class="product-card-na">Price on request</span>
           {/if}
         </div>
+        <button
+          onclick={handleLike}
+          type="button"
+          class="product-card-like-btn"
+          aria-label="Toggle liked"
+        >
+          <Heart class="h-3.5 w-3.5 {liked ? 'fill-[var(--color-destructive)] text-[var(--color-destructive)]' : 'text-white'}" />
+        </button>
       </div>
     </div>
   </div>
@@ -204,8 +199,8 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 18.75rem;
-    min-height: 18.75rem;
+    height: 16.75rem;
+    min-height: 16.75rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -277,13 +272,10 @@
   }
 
   .product-card-like-btn {
-    position: absolute;
-    right: 0.5rem;
-    bottom: 0.5rem;
-    z-index: 3;
     display: flex;
-    height: 1.75rem;
-    width: 1.75rem;
+    height: 1.875rem;
+    width: 1.875rem;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
@@ -376,38 +368,29 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 0.25rem;
+    justify-content: space-between;
+    gap: 0.5rem;
     min-height: 0;
-    padding: 0.75rem 0.75rem 2.625rem;
+    padding: 0.625rem;
   }
 
   .product-card-name {
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-clamp: 2;
     overflow: hidden;
-    font-size: var(--fs-sm);
+    font-size: var(--fs-md);
     font-weight: 500;
     line-height: 1.25;
-    min-height: 2.1875rem;
+    height: 2.5em;
+    max-height: 2.5em;
     color: var(--color-foreground);
     margin: 0;
   }
 
-  .product-card-category {
-    min-height: 0.875rem;
-    font-size: var(--fs-xs);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-muted-foreground);
-    opacity: 0.7;
-  }
-
   .product-card-price-row {
-    margin-top: 0.25rem;
-    min-height: 1.25rem;
+    min-height: 1.875rem;
     display: flex;
     align-items: center;
     justify-content: space-between;

@@ -18,6 +18,7 @@
   const lists = useLists();
   const session = useSession();
   const ui = useUI();
+  const appBuildLabel = persist.buildLabel();
 
   // ── Intro state machine ─────────────────────────────────
   type IntroStep = 'spawn' | 'greet' | 'summon' | 'settle' | 'idle';
@@ -244,6 +245,7 @@
   <!-- Top Center Brand (Fixed) -->
   <div class="hero-brand" in:fly={{ y: -30, duration: 600, easing: cubicInOut }}>
     <DjinnBrand size={40} />
+    <span class="build-label">{appBuildLabel}</span>
   </div>
 
 
@@ -330,11 +332,23 @@
     left: 0;
     right: 0;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 0.375rem;
     pointer-events: none;
     z-index: 20;
   }
+
+  .build-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+    color: color-mix(in srgb, var(--color-muted-foreground) 74%, transparent);
+    letter-spacing: 0;
+  }
+
   /* ── Greeting ──────────────────────────────────────────── */
   .greeting-zone {
     display: flex;

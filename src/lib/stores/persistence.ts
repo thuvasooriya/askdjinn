@@ -12,6 +12,23 @@
 
 export const PREFIX = "djinn:";
 export const SCHEMA_VERSION = 1;
+export const STORAGE_EPOCH = 2;
+export const APP_META_STORE_ID = "app-meta";
+
+export type AppMeta = {
+  appVersion: string;
+  buildId: string;
+  storageEpoch: number;
+  seenAt: string;
+};
+
+export type StorageResetNotice = {
+  reason: "missing-meta" | "stale-epoch";
+  currentEpoch: number;
+  storedEpoch: number | null;
+  appVersion: string;
+  buildId: string;
+};
 
 /** Map of legacy storage keys to new namespaced keys for migration.
  *  Covers every prior naming scheme (ruka-*, mithra-*, ruka:*) so no user
@@ -38,6 +55,18 @@ const ALL_KEYS = Object.values(LEGACY_KEY_MAP);
 
 function hasLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+export function appVersion(): string {
+  return __APP_VERSION__;
+}
+
+export function buildId(): string {
+  return __BUILD_ID__;
+}
+
+export function buildLabel(): string {
+  return `v${appVersion()} · ${buildId()}`;
 }
 
 /** Run one-time migration from legacy keys to new namespaced keys */
@@ -92,6 +121,70 @@ export function load<T>(
   } catch {
     return fallback;
   }
+}
+
+function currentMeta(): AppMeta {
+  return {
+    appVersion: appVersion(),
+    buildId: buildId(),
+    storageEpoch: STORAGE_EPOCH,
+    seenAt: new Date().toISOString(),
+  };
+}
+
+export function readAppMeta(): AppMeta | null {
+  return load<AppMeta | null>(APP_META_STORE_ID, 1, null);
+}
+
+export function writeAppMeta(meta: AppMeta = currentMeta()): void {
+  save(APP_META_STORE_ID, 1, meta);
+}
+
+function hasPersistedAppData(): boolean {
+  if (!hasLocalStorage()) return false;
+  try {
+    return Object.keys(window.localStorage).some((key) =>
+      key !== `${PREFIX}${APP_META_STORE_ID}` &&
+      (key.startsWith(PREFIX) || key.startsWith("ruka:") || key.startsWith("ruka-") || key.startsWith("mithra-"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function storageResetNotice(): StorageResetNotice | null {
+  if (!hasLocalStorage()) return null;
+  const meta = readAppMeta();
+  if (!meta) {
+    if (hasPersistedAppData()) {
+      return {
+        reason: "missing-meta",
+        currentEpoch: STORAGE_EPOCH,
+        storedEpoch: null,
+        appVersion: appVersion(),
+        buildId: buildId(),
+      };
+    }
+    writeAppMeta();
+    return null;
+  }
+  if (meta.storageEpoch < STORAGE_EPOCH) {
+    return {
+      reason: "stale-epoch",
+      currentEpoch: STORAGE_EPOCH,
+      storedEpoch: meta.storageEpoch,
+      appVersion: appVersion(),
+      buildId: buildId(),
+    };
+  }
+  if (meta.appVersion !== appVersion() || meta.buildId !== buildId()) {
+    writeAppMeta({ ...meta, appVersion: appVersion(), buildId: buildId(), seenAt: new Date().toISOString() });
+  }
+  return null;
+}
+
+export function markStorageCurrent(): void {
+  writeAppMeta();
 }
 
 /** Save a value to localStorage with schema version */
