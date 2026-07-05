@@ -228,19 +228,19 @@
         <div class="welcome-features">
           <div class="feature-tile">
             <div class="feature-icon"><Globe size={18} /></div>
-            <div class="feature-text">Tamil, Sinhala, English? no problem</div>
+            <div class="feature-text">Sinhala, Tamil, English, or absolute Singlish. We speak fluent human, machan.</div>
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Wand2 size={18} /></div>
-            <div class="feature-text">Ask Djinn what you want and it'll do it</div>
+            <div class="feature-text">Your laziness is our command. Tell Djinn what you want and watch it check out.</div>
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Eye size={18} /></div>
-            <div class="feature-text">Show Djinn what you like and it will help you with that</div>
+            <div class="feature-text">Upload a screenshot. Let Djinn do the visual matchmaking and deal-hunting.</div>
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Brain size={18} /></div>
-            <div class="feature-text">Allergic? Hate spice? Djinn remembers your darkest secrets</div>
+            <div class="feature-text">Anniversaries, nut allergies, and your absolute deal-breakers. Djinn never forgets.</div>
           </div>
         </div>
 

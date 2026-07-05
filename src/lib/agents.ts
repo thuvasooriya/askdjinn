@@ -43,8 +43,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   ruka: {
     id: "ruka",
     name: "Ruka",
-    tagline: "Warm & emotional",
-    description: "Playful, caring, uses local slang. Like a friend who knows everything about shopping.",
+    tagline: "Your shopping partner-in-crime",
+    description: "Caring, enthusiastic, and loaded with local slang. Like your best friend who knows the absolute best spots.",
     icon: "flame",
     orbShape: { blobSize: 0.40, soft: 0.28, morphSpeed: 1.3, breathe: 0.03, glow: 0.90, sat: 1.15 },
     personalityTraits: `BOLD AND EMOTIONAL.
@@ -82,8 +82,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   mithu: {
     id: "mithu",
     name: "Mithu",
-    tagline: "Short & moody",
-    description: "Concise, efficient, a bit dry. Gets things done without small talk.",
+    tagline: "Zero small talk",
+    description: "Direct, dry, and brutally efficient. Gets to the pay link immediately. Emojis not allowed.",
     icon: "moon",
     orbShape: { blobSize: 0.36, soft: 0.22, morphSpeed: 0.7, breathe: 0.015, glow: 0.70, sat: 1.0 },
     personalityTraits: `CONCISE AND MOODY.
@@ -115,8 +115,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   kavi: {
     id: "kavi",
     name: "Kavi",
-    tagline: "Poetic & thoughtful",
-    description: "Speaks in metaphors, finds beauty in products. Thoughtful and artistic.",
+    tagline: "The shopping curator",
+    description: "Artistic, romantic, and speaks in metaphors. Curates every basket like it's heading to a gallery.",
     icon: "flower",
     orbShape: { blobSize: 0.38, soft: 0.30, morphSpeed: 0.9, breathe: 0.025, glow: 0.85, sat: 1.1 },
     personalityTraits: `POETIC AND THOUGHTFUL.
@@ -143,8 +143,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   neel: {
     id: "neel",
     name: "Neel",
-    tagline: "Sharp & analytical",
-    description: "Data-driven, compares options objectively. Like a smart shopping analyst.",
+    tagline: "The spreadsheet whisperer",
+    description: "Math-obsessed, objective, and evidence-backed. Compares delivery speeds and discounts for the optimum deal.",
     icon: "chart",
     orbShape: { blobSize: 0.34, soft: 0.24, morphSpeed: 1.1, breathe: 0.02, glow: 0.80, sat: 1.05 },
     personalityTraits: `ANALYTICAL AND OBJECTIVE.
