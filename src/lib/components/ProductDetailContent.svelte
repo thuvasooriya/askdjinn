@@ -106,6 +106,13 @@
     return { full, empty };
   });
 
+  const descriptionBullets = $derived(
+    product.description
+      ?.split(/ {3,}/)
+      .map(s => s.replace(/ {2,}/g, " ").trim())
+      .filter(Boolean) ?? []
+  );
+
   // Reset state when product changes
   $effect(() => {
     if (product) {
@@ -425,10 +432,14 @@
           </div>
         {/if}
 
-        {#if product.description}
+        {#if descriptionBullets.length > 0}
           <div class="section-card">
             <h3 class="section-card-title">Description</h3>
-            <p class="desc-text">{product.description}</p>
+            <ul class="desc-bullets">
+              {#each descriptionBullets as bullet}
+                <li>{bullet}</li>
+              {/each}
+            </ul>
           </div>
         {/if}
 
@@ -975,14 +986,18 @@
     background: color-mix(in srgb, var(--color-primary) 5%, transparent);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
-  .desc-text {
+  .desc-bullets {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin: 0.25rem 0;
     font-size: var(--fs-md);
     line-height: 1.6;
     color: var(--color-muted-foreground);
-    margin: 0;
-    white-space: pre-wrap;
-    text-align: justify;
   }
+  .desc-bullets li {
+    margin-bottom: 0.25rem;
+  }
+
 
   /* ── Description Card ── */
   .section-card {
