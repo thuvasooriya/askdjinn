@@ -5,6 +5,7 @@
     import { ShoppingBag, Plus, Minus, Trash2, ClipboardList } from "@lucide/svelte";
     import Button from "$lib/ui/Button.svelte";
     import PanelHeader from "$lib/ui/PanelHeader.svelte";
+    import PanelEmptyState from "$lib/ui/PanelEmptyState.svelte";
     import PanelActionButton from "$lib/ui/PanelActionButton.svelte";
     import { useCart } from "$lib/stores/cart.svelte";
     import { useUI } from "$lib/stores/ui.svelte";
@@ -44,10 +45,7 @@
     </PanelHeader>
 
     {#if items.length === 0}
-        <div class="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
-            <ShoppingBag class="mb-3 h-10 w-10 text-[var(--color-muted-foreground)]/30" />
-            <p class="text-sm text-[var(--color-muted-foreground)]">Cart is empty</p>
-        </div>
+        <PanelEmptyState icon={ShoppingBag} title="Cart is empty" description="Add products to your cart to create an order." />
     {:else}
         <div class="flex flex-1 min-h-0 flex-col">
             <div class="flex-1 divide-y divide-[var(--color-border)] overflow-y-auto">
@@ -116,8 +114,8 @@
                         <span class="font-bold text-[var(--color-primary)]">{formatMoney(cart.grandTotal, "LKR")}</span>
                     </div>
                 {:else}
-                    <div class="mb-2 flex items-center justify-between text-xs">
-                        <span class="text-[var(--color-muted-foreground)]">Delivery fee: check delivery</span>
+                    <div class="mb-2 flex items-center justify-center text-xs">
+                        <span class="text-[var(--color-muted-foreground)]">Delivery Fee will be Added</span>
                     </div>
                 {/if}
             </div>

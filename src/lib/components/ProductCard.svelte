@@ -197,7 +197,7 @@
         {#if hasDiscount}
           <Badge variant="destructive">-{discountPct}%</Badge>
         {/if}
-        {#if product.stockLevel === "low"}
+        {#if false /* low stock indicator disabled for now */}
           <button
             type="button"
             class="product-card-stock-badge"

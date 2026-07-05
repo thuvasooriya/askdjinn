@@ -10,7 +10,8 @@
     ExternalLink,
     Truck,
     Heart,
-    Globe,
+    Plane,
+    MapPin,
     Maximize2,
     Play,
     Pause,
@@ -96,12 +97,7 @@
     return Object.keys(merged).length ? merged : null;
   });
 
-  const breadcrumb = $derived.by<string[]>(() => {
-    if (!product) return [];
-    if (product.categoryPath) return product.categoryPath.split(" > ");
-    if (product.category) return [product.category];
-    return [];
-  });
+
 
   const ratingStars = $derived.by(() => {
     const r = product?.rating ?? 0;
@@ -307,21 +303,10 @@
     <div class="detail-content">
       <div class="info-section">
         <div class="info-header">
-          {#if breadcrumb.length > 0}
-            <p class="breadcrumb">
-              {#each breadcrumb as crumb, i}
-                <span class="crumb">{crumb}</span>
-                {#if i < breadcrumb.length - 1}
-                  <span class="crumb-sep">&gt;</span>
-                {/if}
-              {/each}
-            </p>
           {/if}
 
           <h2 class="product-name">{product.name}</h2>
-          {#if product.summary && product.summary !== product.description}
-            <p class="product-summary">{product.summary}</p>
-          {/if}
+
 
           {#if product.rating && product.rating > 0}
             <div class="rating-row">
@@ -368,13 +353,13 @@
             {/if}
             {#if product.shipsInternationally}
               <span class="chip chip-neutral">
-                <Globe class="chip-icon" />
+                <Plane class="chip-icon" />
                 Global Shipping
               </span>
             {/if}
             {#if product.shipsFrom}
               <span class="chip chip-neutral">
-                <Globe class="chip-icon" />
+                <MapPin class="chip-icon" />
                 Ships from {product.shipsFrom.toUpperCase()}
               </span>
             {/if}
@@ -796,25 +781,7 @@
     padding-bottom: 0.75rem;
   }
 
-  .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    margin: 0;
-  }
-  .crumb {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-muted-foreground);
-    background: color-mix(in srgb, var(--color-muted-foreground) 10%, transparent);
-    padding: 0.125rem 0.375rem;
-    border-radius: var(--radius-full);
-  }
-  .crumb-sep {
-    display: none;
-  }
+
 
   .product-name {
     font-size: var(--fs-lg);
@@ -823,13 +790,7 @@
     color: var(--color-foreground);
     margin: 0;
   }
-  .product-summary {
-    font-size: var(--fs-md);
-    line-height: 1.4;
-    color: var(--color-muted-foreground);
-    margin: 0.375rem 0 0;
-    font-weight: 500;
-  }
+
 
   .rating-row {
     display: flex;
