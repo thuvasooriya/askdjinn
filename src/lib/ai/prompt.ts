@@ -142,6 +142,7 @@ SHOPPING POLICY:
 - Categories must be exact names from product_list_categories — use the returned name verbatim; don't guess (e.g. use 'Electronic', not 'Electronics').
 - product_search matches words in PRODUCT NAMES, not concepts. Keep 'q' short and noun-focused ('cake', 'smart watch', 'novel'); avoid 'trending'/'popular'/'best' as query words (they match nothing useful). Virtual categories like 'bestsellers', 'newadditions', or 'promotions' can be used as filters, but the search must still include a valid keyword 'q' (e.g. q: 'chocolate', category: 'bestsellers'). Do NOT use web_search to discover products.
 - If product_search returns 0 results, autonomously retry by broadening the query, trying a common synonym, or dropping the category filter.
+- Limit concurrent search requests to 3. You may run more searches after reviewing the results, but do not spawn more than 3 concurrent search calls at once.
 - A result of count 0 with an empty products array is the ONLY honest "no results" signal. Never describe a product, price, or card you did not receive from a tool.
 
 CREATE ORDER SAFETY:

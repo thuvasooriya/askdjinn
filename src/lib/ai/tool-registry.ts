@@ -274,7 +274,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_search: {
     name: "product_search",
-    description: "Search Kapruka's catalog by product NAME; results appear in the product grid automatically. Always prefer general search (no category filter) first using popular physical keywords (e.g. 'gift', 'hamper', 'chocolate', 'flowers', 'perfume'). The catalog matches literal substrings in product names — keep `q` short and noun-focused. Virtual category filters like 'bestsellers' or 'promotions' should only be used as secondary filters paired with a valid query `q` (e.g. q: 'chocolate', category: 'bestsellers'). If a search returns 0 results, autonomously retry by broadening the query, trying common synonyms, or dropping the category filter. Use this before recommending any product.",
+    description: "Search Kapruka's catalog by product NAME; results appear in the product grid automatically. Always prefer general search (no category filter) first using popular physical keywords (e.g. 'gift', 'hamper', 'chocolate', 'flowers', 'perfume'). Limit concurrent search requests to 3 (do not spawn more than 3 concurrent search calls at once; run more only after reviewing the results). The catalog matches literal substrings in product names — keep `q` short and noun-focused. Virtual category filters like 'bestsellers' or 'promotions' should only be used as secondary filters paired with a valid query `q` (e.g. q: 'chocolate', category: 'bestsellers'). If a search returns 0 results, autonomously retry by broadening the query, trying common synonyms, or dropping the category filter. Use this before recommending any product.",
     parameters: {
       type: "object",
       properties: {
