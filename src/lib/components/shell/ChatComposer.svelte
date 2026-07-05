@@ -3,21 +3,19 @@
     // Two variants share all logic, styling tokens, and behaviour:
     //   - "panel":   lives inside the conversation tile (chrome border + focus ring)
     //   - "floating": deployed by AgentBar on orb-tap (glass pill, auto-focus)
-    // Owns its own media-attach hook so it is fully self-contained.
     //
-    // Layout (both variants):  [ textarea ] [ submit ] [ options ]
-    // When the textarea wraps to 2+ lines the actions slide to the top-right
-    // and the textarea takes full width below them (column layout).
+    // Actions (submit / options) are rendered externally by the consumer
+    // (AgentBar, ConversationTile) — this component is pure textarea + attachments.
 
     import { useMediaAttach } from "$lib/attach-media.svelte";
     import { useConversation } from "$lib/stores/conversation.svelte";
     import { useLiveVoice } from "$lib/stores/live-voice.svelte";
     import { useChat } from "$lib/stores/chat.svelte";
     import { devLog } from "$lib/dev-log";
-    import { ArrowUp, X } from "@lucide/svelte";
+    import { X } from "@lucide/svelte";
     import { fade, fly } from "svelte/transition";
     import { browser } from "$app/environment";
-    import OptionsMenu from "./OptionsMenu.svelte";
+
     import WebcamCaptureModal from "./WebcamCaptureModal.svelte";
 
     type Variant = "panel" | "floating";
@@ -28,12 +26,14 @@
         liveActive = false,
         onLiveStart,
         placeholder,
+        onTextChange,
     }: {
         variant?: Variant;
         class?: string;
         liveActive?: boolean;
         onLiveStart?: () => void;
         placeholder?: string;
+        onTextChange?: (hasText: boolean) => void;
     } = $props();
 
     const chat = useChat();
@@ -58,8 +58,13 @@
     const hasText = $derived(text.trim().length > 0);
     const hasImage = $derived(!!conv.pendingImage);
     const canSend = $derived((hasText || hasImage) && !chat.isStreaming);
-    // Submit button reveals when there is text or an attachment — both variants.
-    const showSend = $derived(hasText || hasImage);
+    // Notify parent when text presence changes (so external submit button
+    // can switch between expand / send icon).
+    $effect(() => {
+        onTextChange?.(hasText);
+    });
+
+
 
     const media = useMediaAttach({
         liveActive: () => liveActive,
@@ -68,7 +73,7 @@
         onLiveStart: () => onLiveStart?.(),
     });
 
-    function submit() {
+    export function submit() {
         const value = text.trim();
         devLog.uiCommand("chat-composer submit", {
             variant,
@@ -187,26 +192,7 @@
             class="composer-input"
         ></textarea>
 
-        <div class="composer-actions">
-            {#if showSend}
-                <button
-                    type="button"
-                    class="composer-send"
-                    onclick={submit}
-                    disabled={!canSend}
-                    aria-label="Send message"
-                    transition:fade={{ duration: reducedMotion ? 0 : 100 }}
-                >
-                    <ArrowUp class="h-4 w-4" />
-                </button>
-            {/if}
-            <OptionsMenu
-                {media}
-                onVoiceStart={onLiveStart}
-                align="right"
-                triggerClass="glass-btn composer-options"
-            />
-        </div>
+
     </div>
 </div>
 
@@ -224,19 +210,15 @@
         width: 100%;
     }
 
-    /* ── Panel variant ── chrome that previously lived on the host's
-       forwarded .chat-input-bar class. Now self-contained + scoped. ── */
+    /* ── Panel variant ── styled like floating for consistent height/visuals. */
     .composer--panel {
         gap: 0.5rem;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--color-border-subtle);
-        border-radius: var(--radius-xl);
-        background: color-mix(in srgb, var(--color-surface) 95%, transparent);
-        flex-shrink: 0;
-        width: calc(100% - 1.5rem);
+        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        background: transparent;
+        min-width: 5rem;
         max-width: 32rem;
-        margin: 0.5rem auto 0.75rem;
-        box-shadow: var(--shadow-card);
         transition:
             border-color 0.15s,
             box-shadow 0.15s,
@@ -303,42 +285,9 @@
         color: var(--color-foreground);
     }
 
-    /* ── Actions cluster (submit + options) ── */
-    .composer-actions {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        flex-shrink: 0;
-    }
 
-    .composer-send {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: var(--glass-btn-size);
-        height: var(--glass-btn-size);
-        border-radius: var(--radius-lg);
-        background: var(--color-primary);
-        color: var(--color-primary-foreground);
-        border: none;
-        cursor: pointer;
-        transition:
-            opacity 0.15s,
-            transform 0.1s,
-            background-color 0.15s;
-        flex-shrink: 0;
-    }
-    .composer-send:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    .composer-send:active:not(:disabled) {
-        transform: scale(0.92);
-    }
-    .composer-send:hover:not(:disabled) {
-        opacity: 0.92;
-        transform: scale(1.05);
-    }
+
+
 
     /* ── Attachment: panel chip (above input) ── */
     .attachment-strip {
@@ -420,16 +369,7 @@
         transform: scale(1.08);
     }
 
-    /* Options trigger is forwarded onto OptionsMenu's own <button>, so
-       Svelte's scoped CSS cannot reach it — this MUST be :global().
-       Structural sizing comes from the shared .glass-btn class; we only tint. */
-    :global(.composer-options) {
-        color: var(--color-muted-foreground);
-        transition: color 0.15s;
-    }
-    :global(.composer-options:hover) {
-        color: var(--color-primary);
-    }
+
 
     @media (prefers-reduced-motion: reduce) {
         .composer--panel {

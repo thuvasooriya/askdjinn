@@ -87,9 +87,9 @@ class UIStore {
   panels = $state<Panel[]>([]);
   activePanelId = $state<string | null>(null);
   agentInputOpen = $state(false);
-  /** Show transcript text bubbles during voice mode (default off — voice is
-   *  spoken, not read; tool bubbles still show either way). */
-  voiceTranscript = $state(false);
+  /** Show transcript text bubbles during voice mode (default on — tool
+   *  bubbles always show; text bubbles show when enabled). */
+  voiceTranscript = $state(true);
 
   /** Back-compat view of static open-panel ids (derived from the registry). */
   get openPanels(): Set<string> {

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MicOff, Captions } from "@lucide/svelte";
+    import { MicOff, ArrowUp, Maximize2 } from "@lucide/svelte";
     import { fade } from "svelte/transition";
     import AgentOrb, { type OrbState } from "./AgentOrb.svelte";
     import OptionsMenu from "./shell/OptionsMenu.svelte";
@@ -29,6 +29,8 @@
     const conv = useConversation();
     const liveVoice = useLiveVoice();
     const profile = useProfile();
+    let hasText = $state(false);
+    let composerRef: { submit: () => void } | null = $state(null);
 
     let pressing = $state(false);
     let longPressTriggered = $state(false);
@@ -160,19 +162,6 @@
                 />
             </div>
 
-            <!-- Transcript toggle: show/hide voice transcript bubbles -->
-            <button
-                type="button"
-                onclick={() => (ui.voiceTranscript = !ui.voiceTranscript)}
-                class="glass-btn"
-                aria-label={ui.voiceTranscript ? "Hide transcript" : "Show transcript"}
-                aria-pressed={ui.voiceTranscript}
-                title={ui.voiceTranscript ? "Hide transcript" : "Show transcript"}
-                style:opacity={ui.voiceTranscript ? 1 : 0.5}
-                transition:fade={{ duration: 150 }}
-            >
-                <Captions class="h-4 w-4" />
-            </button>
 
             <!-- Options button in live mode (no voice — already live) -->
             <div class="relative" transition:fade={{ duration: 150 }}>
@@ -180,6 +169,8 @@
                     {media}
                     align="right"
                     triggerClass="glass-btn"
+                    onToggleTranscript={() => (ui.voiceTranscript = !ui.voiceTranscript)}
+                    transcriptActive={ui.voiceTranscript}
                 />
             </div>
             </div>
@@ -239,7 +230,31 @@
                     variant="floating"
                     {liveActive}
                     {onLiveStart}
+                    bind:this={composerRef}
+                    onTextChange={(v) => hasText = v}
                 />
+
+                <div class="flex items-center gap-1.5">
+                    <OptionsMenu
+                        {media}
+                        onVoiceStart={onLiveStart}
+                        align="right"
+                        triggerClass="glass-btn"
+                    />
+
+                    <button
+                        type="button"
+                        class="glass-btn"
+                        onclick={() => hasText ? composerRef?.submit() : ui.toggleConversation()}
+                        aria-label={hasText ? "Send message" : "Expand input"}
+                    >
+                        {#if hasText}
+                            <ArrowUp class="h-4 w-4" />
+                        {:else}
+                            <Maximize2 class="h-4 w-4" />
+                        {/if}
+                    </button>
+                </div>
             {/if}
         </div>
     {/if}

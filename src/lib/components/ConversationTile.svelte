@@ -13,10 +13,12 @@
   import AgentOrb from "./AgentOrb.svelte";
 
   import { useChat } from "$lib/stores/chat.svelte";
-  import { Copy, Brain, ChevronDown } from "@lucide/svelte";
+  import { Copy, Brain, ChevronDown, ArrowUp } from "@lucide/svelte";
   import { useUI } from "$lib/stores/ui.svelte";
   import { toasts } from "$lib/ui/toast";
   import ChatComposer from "./shell/ChatComposer.svelte";
+  import OptionsMenu from "./shell/OptionsMenu.svelte";
+  import { useMediaAttach } from "$lib/attach-media.svelte";
   import { exportFullDebugBundle } from "$lib/debug/app-inspector";
   import OrderConfirmationCard from "$lib/components/OrderConfirmationCard.svelte";
   import { getCreatedOrderFromToolPart } from "$lib/order/order-render";
@@ -30,8 +32,20 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
   const ui = useUI();
   const conv = useConversation();
   const profile = useProfile();
+
+
   const agentStatus = useAgentStatus();
   const liveVoice = useLiveVoice();
+
+  const media = useMediaAttach({
+    liveActive: () => liveActive,
+    liveVoice,
+    conv,
+    onLiveStart: () => {},
+  });
+
+  let hasText = $state(false);
+  let composerRef: { submit: () => void } | null = $state(null);
 
   let scrollContainer: HTMLElement | undefined = $state();
   let selectedPart: TurnPart | undefined = $state();
@@ -226,10 +240,31 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
   {/if}
   <!-- Chat input surface + collapse button -->
   <div class="conv-bottom">
-    <ChatComposer variant="panel" {liveActive} />
-    <button type="button" class="collapse-btn conv-collapse" onclick={() => ui.toggleConversation()} aria-label="Collapse chat" title="Collapse">
-      <ChevronDown class="h-3.5 w-3.5" />
-    </button>
+    <ChatComposer
+      variant="panel"
+      {liveActive}
+      bind:this={composerRef}
+      onTextChange={(v) => hasText = v}
+    />
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <OptionsMenu
+        {media}
+        align="right"
+        triggerClass="glass-btn"
+      />
+      <button
+        type="button"
+        class="glass-btn"
+        onclick={() => hasText ? composerRef?.submit() : ui.toggleConversation()}
+        aria-label={hasText ? "Send message" : "Collapse to floating"}
+      >
+        {#if hasText}
+          <ArrowUp class="h-4 w-4" />
+        {:else}
+          <ChevronDown class="h-4 w-4" />
+        {/if}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -481,14 +516,9 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
 
   .conv-bottom {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 0.375rem;
-  }
-  .conv-collapse {
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    margin-bottom: 0.25rem;
+    padding: 0.5rem 0.75rem;
   }
   @media (prefers-reduced-motion: reduce) {
     .conv-tile { transition-duration: 0.01ms; }

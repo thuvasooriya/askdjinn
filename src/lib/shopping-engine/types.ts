@@ -47,7 +47,7 @@ export interface Product {
   categoryPath?: string;
   summary?: string;
   description?: string;
-  /** Agent-injected highlight annotation. NOT from MCP — set by product_highlight tool only. */
+  /** Agent-injected highlight annotation. NOT from MCP — set by product_add_highlight tool only. */
   reason?: string;
   rating?: number | null;
   shipsInternationally?: boolean;

@@ -2,7 +2,7 @@
   // OptionsMenu — single trigger for all input actions.
   // Conditionally shows "Start Voice" when onVoiceStart is provided;
   // always shows video / photo / upload.
-  import { Plus, Mic, Video, Camera, Upload } from "@lucide/svelte";
+  import { Plus, Mic, Video, Camera, Upload, Captions } from "@lucide/svelte";
   import { fly } from "svelte/transition";
   import { cn } from "$lib/utils";
 
@@ -16,17 +16,20 @@
     openWebcamCapture: () => void;
     handleImageSelect: (e: Event) => void;
   };
-
   let {
     media,
     align = "right",
     triggerClass = "",
     onVoiceStart,
+    onToggleTranscript,
+    transcriptActive = false,
   }: {
     media: Media;
     align?: "left" | "right";
     triggerClass?: string;
     onVoiceStart?: () => void;
+    onToggleTranscript?: () => void;
+    transcriptActive?: boolean;
   } = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
@@ -68,6 +71,11 @@
       {#if onVoiceStart}
         <button type="button" class="dropdown-item" onclick={startVoice}>
           <Mic class="h-3.5 w-3.5" /> Start Voice
+        </button>
+      {/if}
+      {#if onToggleTranscript}
+        <button type="button" class="dropdown-item" onclick={() => { media.closeCameraMenu(); onToggleTranscript(); }}>
+          <Captions class="h-3.5 w-3.5" /> {transcriptActive ? "Hide Transcript" : "Show Transcript"}
         </button>
       {/if}
       <button type="button" class="dropdown-item" onclick={media.startVideoCall}>
