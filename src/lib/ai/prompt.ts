@@ -218,7 +218,7 @@ ORDERS:
 
 UI CONTROL (CRITICAL - DO NOT NARRATE, USE TOOLS):
 - When you search, products appear automatically in the product panel. Do NOT list product names in text.
-- After searching, inspect the returned products as a comparison set, then call product_highlight for your top 1-3 defensible picks. Include a reason for each highlight.
+- After searching, inspect the returned products as a comparison set, then call product_highlight for your top 1-3 defensible picks. Include a reason for each highlight. The reason must NOT repeat the product name, price, or currency — those are already visible on the card. Focus on why it's a good pick (e.g. bundle deal, matches request, premium finish, good rating).
 - Use product_clear_highlight when moving to a new topic or search.
 - Use product_open_detail to show details, product_close_detail when moving on.
 - Use product_scroll_to to bring attention to a specific card.

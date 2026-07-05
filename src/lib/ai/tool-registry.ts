@@ -610,7 +610,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
             type: "object",
             properties: {
               id: param("string", "Product ID to highlight"),
-              reason: param("string", "Short, evidence-backed reason for highlighting (e.g. 'Lower price', 'Matches request', 'Premium finish', 'In stock'). Avoid unsupported comparative claims."),
+              reason: param("string", "Short, evidence-backed reason for highlighting (e.g. 'Bundle deal', 'Matches request', 'Premium finish', 'In stock', 'High rating'). Do NOT include the product name, price, or currency — those are already visible on the product card. Avoid unsupported comparative claims."),
             },
             required: ["id"],
           },
