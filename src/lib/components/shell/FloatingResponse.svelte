@@ -27,7 +27,7 @@
   const hasNewTurns = $derived(lastTurnId !== null && lastTurnId !== initialLastTurnId);
 
   const containerVisible = $derived(
-    !ui.conversationVisible && !ui.askUser && (hasNewTurns || sessionPhase.isActive),
+    !ui.conversationVisible && !ui.askUser,
   );
 
   // Clicking the status pill re-surfaces the most recently dismissed bubble.
@@ -45,7 +45,7 @@
 <style>
   .floating-bubble-container {
     position: fixed;
-    bottom: 6.5rem;
+    bottom: 5.5rem;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1001;

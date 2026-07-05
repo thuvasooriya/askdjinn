@@ -352,8 +352,8 @@
 <style>
     .options-menu-container {
         position: fixed;
-        bottom: 0.75rem;
-        right: 0.75rem;
+        bottom: 2.15rem;
+        right: 2rem;
         z-index: 58;
         display: flex;
         flex-direction: row;

@@ -136,7 +136,6 @@
     class="composer {className}"
     class:composer--panel={!isFloating}
     class:composer--floating={isFloating}
-    class:glass={isFloating}
 >
     {#if !isFloating && hasImage}
         <!-- Panel: attachment chip above the input row -->
@@ -207,35 +206,39 @@
     .composer {
         display: flex;
         flex-direction: column;
-        width: 100%;
-    }
-
-    /* ── Panel variant ── styled like floating for consistent height/visuals. */
-    .composer--panel {
         gap: 0.5rem;
-        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+        padding: 0.125rem 0.5rem 0.125rem 0.75rem;
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
-        background: transparent;
-        min-width: 5rem;
-        max-width: 32rem;
+        background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: var(--shadow-float);
         transition:
             border-color 0.15s,
             box-shadow 0.15s,
             background-color 0.15s;
     }
-    .composer--panel:focus-within {
+    .composer:focus-within {
         border-color: var(--color-primary);
-        box-shadow: 0 0 0 1px var(--color-primary);
-        background: color-mix(in srgb, var(--color-surface) 98%, transparent);
+        box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-float);
+        background: color-mix(in srgb, var(--color-surface) 90%, transparent);
     }
 
-    /* ── Floating variant ── glass pill deployed by AgentBar. ── */
+    /* ── Panel variant ── percentage-based max-width (same strategy as
+       .bubble--assistant: 80% by default, full width on narrow panels). ── */
+    .composer--panel {
+        min-width: 5rem;
+        max-width: 80%;
+    }
+    @container (max-width: 420px) {
+        .composer--panel {
+            max-width: 100%;
+        }
+    }
+
+    /* ── Floating variant ── flexible pill deployed by AgentBar. ── */
     .composer--floating {
-        gap: 0.5rem;
-        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border);
         min-width: 0;
         flex: 1;
         max-width: 32rem;

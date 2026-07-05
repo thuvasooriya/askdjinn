@@ -246,7 +246,7 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
       bind:this={composerRef}
       onTextChange={(v) => hasText = v}
     />
-    <div class="flex items-center gap-1 flex-shrink-0">
+    <div class="flex items-center gap-1.5 flex-shrink-0">
       <OptionsMenu
         {media}
         align="right"
@@ -518,8 +518,8 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.375rem;
-    padding: 0.5rem 0.75rem;
+    gap: 0.75rem;
+    padding: 0.375rem 0.75rem 1rem;
   }
   @media (prefers-reduced-motion: reduce) {
     .conv-tile { transition-duration: 0.01ms; }

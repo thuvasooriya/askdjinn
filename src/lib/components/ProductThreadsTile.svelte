@@ -57,15 +57,23 @@
   }
   // All highlighted products across every thread, deduped by id — pinned to
   // the top of the product pane so the best matches stay prominent regardless
-  // of which query surfaced them.
+  // of which query surfaced them. Also picks up orphaned highlights from
+  // earlier threads that were pushed out by the 3-thread cap.
   const highlightedProducts = $derived.by(() => {
     const seen = new Set<string>();
     const agentPicks: Product[] = [];
+    // Collect from current threads first.
     for (const thread of ui.searchThreads) {
       for (const p of thread.products) {
         if (seen.has(p.id)) continue;
         if (ui.highlightedIds.has(p.id)) { seen.add(p.id); agentPicks.push(p); }
       }
+    }
+    // Orphaned highlights from evicted threads — look up from the registry.
+    for (const id of ui.highlightedIds) {
+      if (seen.has(id)) continue;
+      const product = ui.productRegistry.get(id);
+      if (product) { seen.add(id); agentPicks.push(product); }
     }
     return agentPicks;
   });
@@ -101,26 +109,36 @@
       {/if}
     </div>
   </div>
-
   <div class="threads-scroll">
-    {#if ui.searchThreads.length > 1 && highlightedProducts.length > 0}
-      <div class="thread-grid highlights-grid">
+  {#if highlightedProducts.length > 0}
+    <section class="thread-section">
+      <div class="thread-bar">
+        <span class="thread-query">Highlights</span>
+        <span class="thread-stats">{highlightedProducts.length} picks</span>
+      </div>
+      <div class="highlights-scroll">
         {#each highlightedProducts as product (product.id)}
           {@const isHighlighted = ui.highlightedIds.has(product.id)}
-
           {@const annotation = ui.annotations.get(product.id)}
-          <div class="thread-product" data-product-id={product.id}>
+          <div class="highlight-card" data-product-id={product.id}>
+            <button
+              class="highlight-remove"
+              onclick={() => ui.removeHighlights([product.id])}
+              aria-label="Remove {product.title} from highlights"
+            >
+              <X class="h-3 w-3" />
+            </button>
             <ProductCard
               {product}
               highlighted={isHighlighted}
-
               {annotation}
               onClick={handleClick}
             />
           </div>
         {/each}
       </div>
-    {/if}
+    </section>
+  {/if}
     {#if ui.noResultsQuery}
       <div class="threads-no-results">
         <Search class="h-4 w-4" />
@@ -266,10 +284,48 @@
     padding: 0.5rem;
     box-shadow: var(--shadow-card);
   }
-  .highlights-grid {
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--color-border);
+  .highlights-scroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  .highlight-card {
+    flex: 0 0 10rem;
+    scroll-snap-align: start;
+    position: relative;
+  }
+  .highlight-remove {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: none;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    backdrop-filter: blur(8px);
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease, background 0.15s ease, color 0.15s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  .highlight-card:hover .highlight-remove,
+  .highlight-remove:focus-visible {
+    opacity: 1;
+  }
+  .highlight-remove:hover {
+    background: var(--color-destructive);
+    color: var(--color-destructive-foreground);
   }
 
   .thread-bar {

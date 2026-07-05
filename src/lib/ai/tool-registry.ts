@@ -601,7 +601,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_add_highlight: {
     name: "product_add_highlight",
-    description: "Add highlights to specific products on the user's screen. Highlights accumulate (use product_remove_highlight to remove them). Use after searching to draw attention to 1-3 defensible picks. Reasons must be accurate against the current result set; avoid unsupported superlatives like best value, cheapest, top rated, or fastest unless the returned product data proves them.",
+    description: "Add highlights to specific products on the user's screen. Highlights accumulate (use product_remove_highlight to remove them). Use immediately after each product_search result to anchor the best 1-3 finds before they get rotated out (only 3 threads visible). Accepts max 3 items per call — call again for more. Reasons must be accurate against the current result set; avoid unsupported superlatives like best value, cheapest, top rated, or fastest unless the returned product data proves them.",
     parameters: {
       type: "object",
       properties: {
