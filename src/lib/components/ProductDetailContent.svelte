@@ -303,7 +303,7 @@
     <div class="detail-content">
       <div class="info-section">
         <div class="info-header">
-          {/if}
+
 
           <h2 class="product-name">{product.name}</h2>
 
