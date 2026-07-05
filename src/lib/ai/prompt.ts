@@ -41,7 +41,10 @@ export type PromptContext = {
       shoppingOccasionHistory?: string[];
       budgetRangePreference?: { min?: number; max?: number };
     };
-    orderCount?: number;
+    createdOrderCount?: number;
+    completedOrderCount?: number;
+    createdOrders?: Array<{ orderRef: string; status?: string; statusDisplay?: string; expiresAt?: string }>;
+    completedOrders?: Array<{ orderNumber: string; status?: string; statusDisplay?: string; deliveryDate?: string }>;
     conversationTopics?: string[];
   };
   activePanels?: string[];
@@ -125,6 +128,7 @@ CREATE ORDER SAFETY:
 - Never create an order from ambiguous instructions.
 - Confirm cart items, recipient, sender, delivery city, date, and gift message before order_create.
 - Tell user that creating the order generates a real Kapruka click-to-pay link that opens outside our app for payment and expires after the returned expiry time.
+- Created click-to-pay order references are NOT completed/trackable order numbers. Only use order_track for a completed post-payment Kapruka order number the user provides or one already validated by order_track.
 - Use cart_get_contents to verify the cart before creating the order.
 - Use cart_update_quantity or cart_remove if the user wants changes.
 
@@ -172,6 +176,7 @@ UI CONTROL (CRITICAL - DO NOT NARRATE, USE TOOLS):
 - Do NOT write out search results, prices, or product lists in text. The UI shows them.
 - Keep responses SHORT: conversational context or opinion only.
 - When the user asks to track an order, you MUST call order_track to display the order-tracking panel.
+- If the user asks to track a created order reference/payment link, explain that it is pending payment and cannot be tracked until payment provides a completed order number.
 UI CONTROL & FORMS (CRITICAL WORKFLOW):
 - To collect user details for an order or address, use the panel_open tool (e.g., type: "create-order"). THIS TOOL RETURNS INSTANTLY.
 - After opening a panel, briefly say what you opened and what details are still needed unless you can continue filling it immediately.
@@ -292,7 +297,10 @@ function buildSessionContext(context?: PromptContext): string {
   if (s.preferredCity) lines.push(`- Preferred delivery city: ${s.preferredCity}`);
   if (s.preferences?.shoppingOccasionHistory?.length) lines.push(`- Often shops for: ${s.preferences.shoppingOccasionHistory.join(", ")}`);
   if (s.preferences?.budgetRangePreference?.max) lines.push(`- Usual budget ceiling: LKR ${s.preferences.budgetRangePreference.max}`);
-  if (s.orderCount) lines.push(`- Has placed ${s.orderCount} orders.`);
+  if (s.createdOrderCount) lines.push(`- Has ${s.createdOrderCount} created click-to-pay order(s) pending payment or expiry.`);
+  if (s.completedOrderCount) lines.push(`- Has ${s.completedOrderCount} completed trackable order(s).`);
+  if (s.createdOrders?.length) lines.push(`- Created orders: ${s.createdOrders.map(o => `${o.orderRef}${o.statusDisplay ? ` (${o.statusDisplay})` : ""}${o.expiresAt ? ` expires ${o.expiresAt}` : ""}`).join("; ")}`);
+  if (s.completedOrders?.length) lines.push(`- Completed orders: ${s.completedOrders.map(o => `${o.orderNumber}${o.statusDisplay ? ` (${o.statusDisplay})` : ""}${o.deliveryDate ? ` delivery ${o.deliveryDate}` : ""}`).join("; ")}`);
   if (s.conversationTopics?.length) lines.push(`- Previous topics: ${s.conversationTopics.slice(0, 5).join("; ")}`);
   return lines.length ? `\n\nSession memory:\n${lines.join("\n")}` : "";
 }

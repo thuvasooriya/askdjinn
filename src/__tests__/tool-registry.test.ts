@@ -163,7 +163,7 @@ describe("executeClientTool", () => {
       onClickPanelAction: (_idOrType: string, _action: string, _args?: unknown[]) => ({ ok: true as const, result: undefined }),
       onVerifyPanel: (_idOrType: string) => ({ ok: true as const }),
       onSetDeliveryEstimate: (_estimate: { city: string; rate: number; currency: string; estimatedDate?: string } | null) => {},
-      onGetOrderRecord: (_orderNumber: string) => undefined,
+      onGetCompletedOrderRecord: (_orderNumber: string) => undefined,
       onUpsertOrderRecord: (_record: any) => {},
       onGetOrderRecords: () => [],
       onListAddresses: () => [],
@@ -320,12 +320,12 @@ describe("prompt builder", () => {
       sessionContext: {
         isReturningUser: true,
         preferredCity: "Colombo",
-        orderCount: 5,
+        completedOrderCount: 5,
       },
     });
     expect(prompt).toContain("returning user");
     expect(prompt).toContain("Colombo");
-    expect(prompt).toContain("5 orders");
+    expect(prompt).toContain("5 completed trackable order");
   });
 
   test("cart context is injected", () => {

@@ -13,7 +13,7 @@
 
 import { Search, Truck, Heart, Eye, Save, Brain, Sparkles, Send, X, ShoppingCart, MessageCircleQuestion, Eraser, Plus, List, MapPin, Package, Images, Clock, Maximize2, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, MessageSquare } from "@lucide/svelte";
 import type { LlmTool } from "$lib/llm-engine";
-import type { OrderRecord } from "$lib/stores/session.svelte";
+import type { CompletedOrderRecord, OrderRecord } from "$lib/stores/session.svelte";
 import { createOrder, type CreatedOrder } from "$lib/order/create-order-client";
 import type { Product } from "$lib/shopping-engine";
 
@@ -44,7 +44,7 @@ async function fetchJson(url: string, init: RequestInit = {}, label = "Request",
   return data;
 }
 
-function hasOrderTrackingCache(order: OrderRecord | undefined): boolean {
+function hasOrderTrackingCache(order: CompletedOrderRecord | undefined): boolean {
   return Boolean(
     order?.status ||
       order?.statusDisplay ||
@@ -98,7 +98,7 @@ export interface ClientToolContext {
   onAskUser: (question: string, options: string[]) => Promise<string>;
   onOrderCreated: (order: CreatedOrder) => void;
   onSetDeliveryEstimate: (estimate: { city: string; rate: number; currency: string; estimatedDate?: string } | null) => void;
-  onGetOrderRecord: (orderNumber: string) => OrderRecord | undefined;
+  onGetCompletedOrderRecord: (orderNumber: string) => CompletedOrderRecord | undefined;
   onGetOrderRecords: () => OrderRecord[];
   onUpsertOrderRecord: (record: OrderRecord) => void;
   onShowPanel: (config: { type: string; title?: string; data?: Record<string, unknown> }) => Promise<unknown>;
@@ -409,7 +409,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   order_track: {
     name: "order_track",
-    description: "Track a Kapruka order by order number.",
+    description: "Validate and track a completed Kapruka order by its post-payment order number. Do not use create-order references here; created click-to-pay orders are not trackable until payment produces a completed order number.",
     parameters: {
       type: "object",
       properties: {
@@ -422,7 +422,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
     executeClient: async (args, ctx) => {
       const orderNumber = args.order_number as string;
 
-      const cached = ctx.onGetOrderRecord(orderNumber);
+      const cached = ctx.onGetCompletedOrderRecord(orderNumber);
       if (cached && hasOrderTrackingCache(cached) && Date.now() - cached.lastCheckedAt < 300_000) {
         const panel = ctx.onOpenPanel("order-tracking", { ...cached });
         return { cached: true, panel, ...cached };
@@ -434,14 +434,16 @@ export const TOOLS: Record<string, ToolDefinition> = {
         body: JSON.stringify({ order_number: orderNumber }),
       }, "Order tracking");
 
-      ctx.onUpsertOrderRecord({
+      const completedOrder: CompletedOrderRecord = {
+        kind: "completed",
+        id: (data.orderNumber as string | undefined) ?? orderNumber,
         orderNumber: (data.orderNumber as string | undefined) ?? orderNumber,
         createdAt: cached?.createdAt ?? Date.now(),
         status: data.status as string | undefined,
         statusDisplay: data.statusDisplay as string | undefined,
-        tracking: data.progress,
-        amount: data.amount as number | undefined,
-        recipient: data.recipient as string | undefined,
+        tracking: data.progress as CompletedOrderRecord["tracking"],
+        amount: data.amount as CompletedOrderRecord["amount"],
+        recipient: data.recipient as CompletedOrderRecord["recipient"],
         deliveryDate: data.deliveryDate as string | undefined,
         paymentMethod: data.paymentMethod as string | undefined,
         comments: data.comments as string | undefined,
@@ -449,7 +451,8 @@ export const TOOLS: Record<string, ToolDefinition> = {
         orderDate: data.orderDate as string | undefined,
         shippedDate: data.shippedDate as string | undefined,
         lastCheckedAt: Date.now(),
-      } as OrderRecord);
+      };
+      ctx.onUpsertOrderRecord(completedOrder);
 
       const panel = ctx.onOpenPanel("order-tracking", { ...data, orderNumber });
       return { ...data, panel };
@@ -903,13 +906,20 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   order_list: {
     name: "order_list",
-    description: "List all known orders from the user's order history cache. Returns create-order references, payment links, tracking order numbers when known, statuses, amounts, and delivery dates. Use this before tracking or when the user asks about their orders.",
+    description: "List known created click-to-pay orders and completed trackable orders separately. Created orders have payment links and expiry times; completed orders have tracking status and delivery details.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: Package, label: "Listing orders" },
     category: "shopping",
     executeClient: async (_args, ctx) => {
       const records = ctx.onGetOrderRecords();
-      return { orders: records.map(r => ({ orderNumber: r.orderNumber, orderRef: r.orderRef, paymentUrl: r.paymentUrl, expiresAt: r.expiresAt, status: r.status, statusDisplay: r.statusDisplay, amount: r.amount, summary: r.summary, deliveryDate: r.deliveryDate })) };
+      return {
+        createdOrders: records
+          .filter((r): r is Extract<OrderRecord, { kind: "created" }> => r.kind === "created")
+          .map(r => ({ kind: r.kind, orderRef: r.orderRef, paymentUrl: r.paymentUrl, expiresAt: r.expiresAt, status: r.status, statusDisplay: r.statusDisplay, summary: r.summary })),
+        completedOrders: records
+          .filter((r): r is CompletedOrderRecord => r.kind === "completed")
+          .map(r => ({ kind: r.kind, orderNumber: r.orderNumber, status: r.status, statusDisplay: r.statusDisplay, amount: r.amount, deliveryDate: r.deliveryDate, lastCheckedAt: r.lastCheckedAt })),
+      };
     },
   },
 

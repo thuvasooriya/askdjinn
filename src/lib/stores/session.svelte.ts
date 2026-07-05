@@ -24,18 +24,34 @@ type SessionState = {
 
 export type BudgetRangePreference = { min?: number; max?: number };
 
-export interface OrderRecord {
-  orderNumber: string;
-  orderRef?: string;
+export type OrderSummary = { itemsTotal?: number; deliveryFee?: number; addonsTotal?: number; grandTotal?: number; currency?: string };
+export type TrackingStep = { step: string; timestamp?: string };
+export type MoneyAmount = { value: number; currency: string };
+export type OrderRecipient = { name?: string; phone?: string; address?: string; city?: string };
+
+export interface CreatedOrderRecord {
+  kind: "created";
+  id: string;
+  orderRef: string;
   paymentUrl?: string;
   expiresAt?: string;
   createdAt: number;
+  status: "pending_payment" | "payment_expired";
+  statusDisplay: string;
+  summary?: OrderSummary;
+  lastCheckedAt: 0;
+}
+
+export interface CompletedOrderRecord {
+  kind: "completed";
+  id: string;
+  orderNumber: string;
+  createdAt: number;
   status?: string;
   statusDisplay?: string;
-  summary?: { itemsTotal?: number; deliveryFee?: number; addonsTotal?: number; grandTotal?: number; currency?: string };
-  tracking?: { step: string; timestamp?: string }[];
-  amount?: { value: number; currency: string };
-  recipient?: { name?: string; phone?: string; address?: string; city?: string };
+  tracking?: TrackingStep[];
+  amount?: MoneyAmount;
+  recipient?: OrderRecipient;
   deliveryDate?: string;
   paymentMethod?: string;
   comments?: string;
@@ -44,6 +60,8 @@ export interface OrderRecord {
   shippedDate?: string;
   lastCheckedAt: number;
 }
+
+export type OrderRecord = CreatedOrderRecord | CompletedOrderRecord;
 
 function createEmptySession(): SessionState {
   return { sessionId: "", createdAt: "", preferences: { shoppingOccasionHistory: [] }, orderRecords: [], conversationTopics: [] };
@@ -90,6 +108,80 @@ function normalizeBudget(value: unknown): BudgetRangePreference | undefined {
   return { min: typeof record.min === "number" ? record.min : undefined, max: typeof record.max === "number" ? record.max : undefined };
 }
 
+function normalizeOrderRecord(value: unknown): OrderRecord | null {
+  const order = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const now = Date.now();
+  const createdAt = typeof order.createdAt === "number" ? order.createdAt : now;
+
+  if (order.kind === "created") {
+    const orderRef = typeof order.orderRef === "string" ? order.orderRef.trim() : "";
+    if (!orderRef) return null;
+    return {
+      kind: "created",
+      id: typeof order.id === "string" && order.id.trim() ? order.id.trim() : orderRef,
+      orderRef,
+      paymentUrl: typeof order.paymentUrl === "string" ? order.paymentUrl : undefined,
+      expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : undefined,
+      createdAt,
+      status: order.status === "payment_expired" ? "payment_expired" : "pending_payment",
+      statusDisplay: typeof order.statusDisplay === "string" ? order.statusDisplay : "Payment pending",
+      summary: order.summary && typeof order.summary === "object" ? order.summary as OrderSummary : undefined,
+      lastCheckedAt: 0,
+    };
+  }
+
+  if (order.kind === "completed") {
+    const orderNumber = typeof order.orderNumber === "string" ? order.orderNumber.trim() : "";
+    if (!orderNumber) return null;
+    return {
+      kind: "completed",
+      id: typeof order.id === "string" && order.id.trim() ? order.id.trim() : orderNumber,
+      orderNumber,
+      createdAt,
+      status: typeof order.status === "string" ? order.status : undefined,
+      statusDisplay: typeof order.statusDisplay === "string" ? order.statusDisplay : undefined,
+      tracking: Array.isArray(order.tracking) ? order.tracking as TrackingStep[] : undefined,
+      amount: order.amount && typeof order.amount === "object" ? order.amount as MoneyAmount : undefined,
+      recipient: order.recipient && typeof order.recipient === "object" ? order.recipient as OrderRecipient : undefined,
+      deliveryDate: typeof order.deliveryDate === "string" ? order.deliveryDate : undefined,
+      paymentMethod: typeof order.paymentMethod === "string" ? order.paymentMethod : undefined,
+      comments: typeof order.comments === "string" ? order.comments : undefined,
+      giftMessage: typeof order.giftMessage === "string" ? order.giftMessage : undefined,
+      orderDate: typeof order.orderDate === "string" ? order.orderDate : undefined,
+      shippedDate: typeof order.shippedDate === "string" ? order.shippedDate : undefined,
+      lastCheckedAt: typeof order.lastCheckedAt === "number" ? order.lastCheckedAt : 0,
+    };
+  }
+
+  const legacyOrderNumber = typeof order.orderNumber === "string" ? order.orderNumber.trim() : "";
+  const legacyOrderRef = typeof order.orderRef === "string" ? order.orderRef.trim() : "";
+  if (legacyOrderRef || order.paymentUrl || order.expiresAt || order.status === "pending_payment") {
+    const orderRef = legacyOrderRef || legacyOrderNumber;
+    if (!orderRef) return null;
+    return {
+      kind: "created",
+      id: orderRef,
+      orderRef,
+      paymentUrl: typeof order.paymentUrl === "string" ? order.paymentUrl : undefined,
+      expiresAt: typeof order.expiresAt === "string" ? order.expiresAt : undefined,
+      createdAt,
+      status: "pending_payment",
+      statusDisplay: "Payment pending",
+      summary: order.summary && typeof order.summary === "object" ? order.summary as OrderSummary : undefined,
+      lastCheckedAt: 0,
+    };
+  }
+
+  if (!legacyOrderNumber) return null;
+  return {
+    kind: "completed",
+    id: legacyOrderNumber,
+    orderNumber: legacyOrderNumber,
+    createdAt,
+    lastCheckedAt: typeof order.lastCheckedAt === "number" ? order.lastCheckedAt : 0,
+  };
+}
+
 function normalizeSession(value: unknown): SessionState {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const prefs = record.preferences && typeof record.preferences === "object" ? record.preferences as Partial<SessionPreferences> : {};
@@ -97,16 +189,14 @@ function normalizeSession(value: unknown): SessionState {
   // Migrate from old orderHistory: string[] to orderRecords: OrderRecord[]
   let orderRecords: OrderRecord[] = [];
   if (Array.isArray(record.orderRecords)) {
-    orderRecords = (record.orderRecords as OrderRecord[])
-      .filter((order) => isString(order.orderNumber))
+    orderRecords = (record.orderRecords as unknown[])
+      .map(normalizeOrderRecord)
+      .filter((order): order is OrderRecord => Boolean(order))
       .slice(0, MAX_HISTORY)
-      .map((order) => ({
-        ...order,
-        createdAt: typeof order.createdAt === "number" ? order.createdAt : Date.now(),
-        lastCheckedAt: typeof order.lastCheckedAt === "number" ? order.lastCheckedAt : 0,
-      }));
   } else if (Array.isArray(record.orderHistory)) {
     orderRecords = (record.orderHistory as string[]).filter(isString).slice(0, MAX_HISTORY).map(n => ({
+      kind: "completed",
+      id: n,
       orderNumber: n,
       createdAt: Date.now(),
       lastCheckedAt: 0,
@@ -140,14 +230,18 @@ function loadSession(): { session: SessionState; returning: boolean } {
 function buildSessionContext(s: SessionState, returning: boolean) {
   const daysSinceLastOrder = s.lastOrderAt ? Math.floor((Date.now() - new Date(s.lastOrderAt).getTime()) / 86_400_000) : undefined;
   const profile = useProfile();
+  const createdOrders = s.orderRecords.filter((r): r is CreatedOrderRecord => r.kind === "created");
+  const completedOrders = s.orderRecords.filter((r): r is CompletedOrderRecord => r.kind === "completed");
   return {
     sessionId: s.sessionId,
     createdAt: s.createdAt,
     isReturningUser: returning,
     daysSinceLastOrder,
     preferences: s.preferences,
-    orderCount: s.orderRecords.length,
-    orderHistory: s.orderRecords.map(r => r.orderNumber),
+    createdOrderCount: createdOrders.length,
+    completedOrderCount: completedOrders.length,
+    createdOrders: createdOrders.map(r => ({ orderRef: r.orderRef, status: r.status, statusDisplay: r.statusDisplay, expiresAt: r.expiresAt })),
+    completedOrders: completedOrders.map(r => ({ orderNumber: r.orderNumber, status: r.status, statusDisplay: r.statusDisplay, deliveryDate: r.deliveryDate })),
     conversationTopics: s.conversationTopics,
     language: profile.language,
     preferredCity: profile.preferredCity,
@@ -171,7 +265,9 @@ class SessionStore {
   get lastOrderAt() { return this.session.lastOrderAt; }
   get preferences() { return this.session.preferences; }
   get conversationTopics() { return this.session.conversationTopics; }
-  get orderHistory() { return this.session.orderRecords.map(r => r.orderNumber); }
+  get createdOrders() { return this.session.orderRecords.filter((r): r is CreatedOrderRecord => r.kind === "created"); }
+  get completedOrders() { return this.session.orderRecords.filter((r): r is CompletedOrderRecord => r.kind === "completed"); }
+  get orderHistory() { return this.completedOrders.map(r => r.orderNumber); }
   get orderRecords() { return this.session.orderRecords; }
   get sessionContext() { return buildSessionContext(this.session, this.isReturningUser); }
 
@@ -179,10 +275,12 @@ class SessionStore {
     persist.save(STORE_ID, VERSION, this.session);
   }
 
-  addOrder(orderNumber?: string) {
+  addCompletedOrder(orderNumber?: string) {
     const value = orderNumber?.trim();
     if (!value) return;
     this.upsertOrderRecord({
+      kind: "completed",
+      id: value,
       orderNumber: value,
       createdAt: Date.now(),
       lastCheckedAt: 0,
@@ -191,19 +289,18 @@ class SessionStore {
     this.commit();
   }
 
-  getOrderRecord(orderNumber: string): OrderRecord | undefined {
-    return this.session.orderRecords.find(r => r.orderNumber === orderNumber);
+  getCompletedOrderRecord(orderNumber: string): CompletedOrderRecord | undefined {
+    return this.completedOrders.find(r => r.orderNumber === orderNumber);
   }
 
   upsertOrderRecord(record: OrderRecord): void {
-    const idx = this.session.orderRecords.findIndex(r => r.orderNumber === record.orderNumber);
-    const updated = { ...record, lastCheckedAt: record.lastCheckedAt };
+    const idx = this.session.orderRecords.findIndex(r => r.kind === record.kind && r.id === record.id);
     let records: OrderRecord[];
     if (idx >= 0) {
       records = [...this.session.orderRecords];
-      records[idx] = updated;
+      records[idx] = record;
     } else {
-      records = [updated, ...this.session.orderRecords];
+      records = [record, ...this.session.orderRecords];
     }
     this.session = { ...this.session, orderRecords: records.slice(0, MAX_HISTORY) };
     this.commit();

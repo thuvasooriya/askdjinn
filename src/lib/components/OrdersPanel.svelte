@@ -2,15 +2,16 @@
     import {
         Package,
         Truck,
-        ArrowLeft,
         RefreshCw,
         ExternalLink,
         AlertCircle,
         CheckCircle2,
         Circle,
+        Clock,
+        CreditCard,
     } from "@lucide/svelte";
     import BrailleSpinner from "$lib/ui/BrailleSpinner.svelte";
-    import { useSession } from "$lib/stores/session.svelte";
+    import { useSession, type CompletedOrderRecord, type CreatedOrderRecord } from "$lib/stores/session.svelte";
     import { formatMoney } from "$lib/money";
     import { toasts } from "$lib/ui/toast";
     import PanelHeader from "$lib/ui/PanelHeader.svelte";
@@ -26,15 +27,16 @@
     const ui = useUI();
     const session = useSession();
     const orders = $derived(session.orderRecords);
-
+    const createdOrders = $derived(session.createdOrders);
+    const completedOrders = $derived(session.completedOrders);
 
     function isTerminalStatus(status: string | undefined): boolean {
-        return ["delivered", "completed", "cancelled", "canceled", "expired", "failed"].includes(
+        return ["delivered", "completed", "cancelled", "canceled", "failed"].includes(
             status?.toLowerCase() ?? "",
         );
     }
 
-    function hasTrackingCache(order: (typeof orders)[number]): boolean {
+    function hasTrackingCache(order: CompletedOrderRecord): boolean {
         return Boolean(
             order.status ||
                 order.statusDisplay ||
@@ -48,6 +50,13 @@
         );
     }
 
+    function isCreatedExpired(order: CreatedOrderRecord): boolean {
+        if (order.status === "payment_expired") return true;
+        if (!order.expiresAt) return false;
+        const expiry = new Date(order.expiresAt).getTime();
+        return Number.isFinite(expiry) && Date.now() > expiry;
+    }
+
     function isRefreshing(orderNumber: string): boolean {
         return refreshingIds.has(orderNumber);
     }
@@ -56,7 +65,7 @@
         return refreshErrors[orderNumber];
     }
 
-    function shouldAutoRefresh(order: (typeof orders)[number]): boolean {
+    function shouldAutoRefresh(order: CompletedOrderRecord): boolean {
         if (!order.orderNumber || refreshingIds.has(order.orderNumber)) return false;
         if (autoRefreshAttempted.has(order.orderNumber)) return false;
 
@@ -87,7 +96,7 @@
     }
 
     async function refreshOrder(
-        order: (typeof orders)[number],
+        order: CompletedOrderRecord,
         opts: { force?: boolean; toast?: boolean; automatic?: boolean } = {},
     ) {
         if (!order.orderNumber) return;
@@ -108,14 +117,14 @@
             if (!res.ok) {
                 const message = data.error ?? "Failed to refresh order";
                 setRefreshError(order.orderNumber, message);
-                if (opts.toast) {
-                    toasts.error(message);
-                }
+                if (opts.toast) toasts.error(message);
                 return;
             }
+            const orderNumber = data.orderNumber ?? order.orderNumber;
             session.upsertOrderRecord({
-                orderNumber: data.orderNumber ?? order.orderNumber,
-                paymentUrl: order.paymentUrl,
+                kind: "completed",
+                id: orderNumber,
+                orderNumber,
                 createdAt: order.createdAt,
                 status: data.status,
                 statusDisplay: data.statusDisplay,
@@ -131,7 +140,7 @@
                 lastCheckedAt: Date.now(),
             });
             if (opts.toast) toasts.success("Order refreshed");
-        } catch (err) {
+        } catch {
             setRefreshError(order.orderNumber, "Network error refreshing order");
             if (opts.toast) toasts.error("Network error refreshing order");
         } finally {
@@ -140,14 +149,13 @@
     }
 
     async function refreshStaleOrders() {
-        const staleOrders = orders.filter(shouldAutoRefresh);
+        const staleOrders = completedOrders.filter(shouldAutoRefresh);
         await Promise.all(
             staleOrders.map((order) =>
                 refreshOrder(order, { automatic: true }),
             ),
         );
     }
-
 
     $effect(() => {
         void refreshStaleOrders();
@@ -162,7 +170,6 @@
             case "processing":
             case "shipped":
                 return "bg-[var(--color-primary)]/15 text-[var(--color-primary)] border border-[var(--color-primary)]/25";
-            case "expired":
             case "cancelled":
             case "failed":
                 return "bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border border-[var(--color-border)]";
@@ -171,31 +178,34 @@
         }
     }
 
-    function statusLabel(
-        status: string | undefined,
-        statusDisplay: string | undefined,
-    ): string {
+    function createdBadgeClass(order: CreatedOrderRecord): string {
+        return isCreatedExpired(order)
+            ? "bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border border-[var(--color-border)]"
+            : "bg-[var(--color-primary)]/15 text-[var(--color-primary)] border border-[var(--color-primary)]/25";
+    }
+
+    function statusLabel(status: string | undefined, statusDisplay: string | undefined): string {
         return statusDisplay ?? status ?? "Unknown";
     }
 
-    function listStatusLabel(order: (typeof orders)[number]): string {
-        if (hasTrackingCache(order)) {
-            return statusLabel(order.status, order.statusDisplay);
-        }
+    function completedStatusLabel(order: CompletedOrderRecord): string {
+        if (hasTrackingCache(order)) return statusLabel(order.status, order.statusDisplay);
         if (isRefreshing(order.orderNumber)) return "Fetching";
         if (refreshError(order.orderNumber)) return "Needs refresh";
-        return "Queued";
+        return "Not checked";
     }
 
-    function trackingSteps(order: (typeof orders)[number]) {
+    function createdStatusLabel(order: CreatedOrderRecord): string {
+        return isCreatedExpired(order) ? "Payment expired" : order.statusDisplay;
+    }
+
+    function trackingSteps(order: CompletedOrderRecord) {
         return [...(order.tracking ?? [])].reverse();
     }
 
     function formatTimestamp(ts: string | undefined): string {
         if (!ts) return "";
-        // If already a readable date/time, return as-is
         if (/[A-Za-z]{3}/.test(ts)) return ts;
-        // Try to parse as ISO
         try {
             const d = new Date(ts);
             if (!isNaN(d.getTime())) {
@@ -237,123 +247,54 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-        <!-- List View -->
-        <PanelHeader title="Orders" />
+    <PanelHeader title="Orders" />
 
-        {#if orders.length === 0}
-            <div
-                class="flex h-full flex-col items-center justify-center px-4 py-12 text-center"
-            >
-                <Package
-                    class="mb-3 h-10 w-10 text-[var(--color-muted-foreground)]/30"
-                />
-                <p
-                    class="text-sm font-medium text-[var(--color-muted-foreground)]"
-                >
-                    No orders yet
-                </p>
-                <p class="mt-1 text-xs text-[var(--color-muted-foreground)]/70">
-                    Your orders will appear here after creating an order.
-                </p>
-            </div>
-        {:else}
-            <div class="flex-1 overflow-y-auto p-3">
-                <div class="space-y-2">
-                    {#each orders as order (order.orderNumber)}
-                        <div
-                            class="panel-card transition hover:border-[var(--color-border)]/60"
-                        >
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2">
-                                        <span
-                                            class="text-sm font-semibold text-[var(--color-foreground)]"
-                                            >{order.orderNumber}</span
-                                        >
-                                        <span
-                                            class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none {statusBadgeClass(
-                                                order.status,
-                                            )}"
-                                        >
-                                            {#if isRefreshing(order.orderNumber)}
-                                                <BrailleSpinner size="sm" />
-                                            {:else}
-                                                {listStatusLabel(order)}
-                                            {/if}
-                                        </span>
-                                    </div>
-                                    {#if !hasTrackingCache(order)}
-                                        <p
-                                            class="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-muted-foreground)]"
-                                        >
-                                            {#if refreshError(order.orderNumber)}
-                                                <AlertCircle
-                                                    class="h-3 w-3 text-[var(--color-destructive)]"
-                                                />
-                                                {refreshError(order.orderNumber)}
-                                            {:else if isRefreshing(order.orderNumber)}
-                                                Fetching the latest tracking details...
-                                            {:else}
-                                                Tracking details are not cached yet.
-                                            {/if}
-                                        </p>
-                                    {/if}
-                                    {#if hasTrackingCache(order) && order.amount}
-                                        <p
-                                            class="mt-1 text-xs font-bold text-[var(--color-primary)]"
-                                        >
-                                            {formatMoney(
-                                                order.amount.value,
-                                                order.amount.currency,
-                                            )}
-                                        </p>
-                                    {/if}
-                                    {#if hasTrackingCache(order) && order.deliveryDate}
-                                        <p
-                                            class="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]"
-                                        >
-                                            Delivery: {formatDate(
-                                                order.deliveryDate,
-                                            )}
-                                        </p>
-                                    {/if}
-                                    {#if hasTrackingCache(order) && (order.recipient?.name || order.recipient?.city)}
-                                        <p
-                                            class="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]"
-                                        >
-                                            {order.recipient
-                                                ?.name}{#if order.recipient?.name && order.recipient?.city}
-                                                &middot;
-                                            {/if}{order.recipient?.city}
-                                        </p>
-                                    {/if}
-                                </div>
-                                <div class="flex shrink-0 flex-col gap-1.5">
-                                    <Button
-                                        type="button"
-                                        onclick={() =>
-                                            ui.open("order-tracking" as any, { kind: "dynamic", data: { ...order, progress: order.tracking } })}
-                                        variant="outline"
-                                        size="sm"
-                                        class="h-auto gap-1 px-2.5 py-1 text-[10px]"
-                                    >
-                                        {#if isRefreshing(order.orderNumber)}
-                                            <BrailleSpinner size="sm" />
-                                            Loading
-                                        {:else}
-                                            <Truck class="h-3 w-3" />
-                                            Track
+    {#if orders.length === 0}
+        <div class="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
+            <Package class="mb-3 h-10 w-10 text-[var(--color-muted-foreground)]/30" />
+            <p class="text-sm font-medium text-[var(--color-muted-foreground)]">No orders yet</p>
+            <p class="mt-1 text-xs text-[var(--color-muted-foreground)]/70">
+                Created orders and tracked orders will appear here.
+            </p>
+        </div>
+    {:else}
+        <div class="flex-1 overflow-y-auto p-3">
+            <div class="space-y-3">
+                {#if createdOrders.length > 0}
+                    <section class="space-y-2" aria-label="Created orders">
+                        <p class="px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-muted-foreground)]">Created orders</p>
+                        {#each createdOrders as order (order.id)}
+                            <div class="panel-card border-[var(--color-primary)]/20 transition hover:border-[var(--color-border)]/60">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <CreditCard class="h-3.5 w-3.5 text-[var(--color-primary)]" />
+                                            <span class="font-mono text-sm font-semibold text-[var(--color-foreground)]">{order.orderRef}</span>
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none {createdBadgeClass(order)}">
+                                                {createdStatusLabel(order)}
+                                            </span>
+                                        </div>
+                                        {#if order.summary?.grandTotal != null}
+                                            <p class="mt-1 text-xs font-bold text-[var(--color-primary)]">
+                                                {formatMoney(order.summary.grandTotal, order.summary.currency ?? "LKR")}
+                                            </p>
                                         {/if}
-                                    </Button>
-                                    {#if order.paymentUrl && order.status && !["delivered", "completed"].includes(order.status.toLowerCase())}
+                                        {#if order.expiresAt}
+                                            <p class="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-muted-foreground)]">
+                                                <Clock class="h-3 w-3" />
+                                                {isCreatedExpired(order) ? "Expired" : "Payment expires"} {formatTimestamp(order.expiresAt)}
+                                            </p>
+                                        {/if}
+                                        <p class="mt-1 text-[10px] text-[var(--color-muted-foreground)]">
+                                            This is a click-to-pay order. Tracking starts only after payment creates a completed order number.
+                                        </p>
+                                    </div>
+                                    {#if order.paymentUrl && !isCreatedExpired(order)}
                                         <a
                                             href={order.paymentUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class={buttonVariants({
-                                                variant: "outline",
-                                                size: "sm",
-                                            }) +
+                                            class={buttonVariants({ variant: "outline", size: "sm" }) +
                                                 " h-auto gap-1 px-2.5 py-1 text-[10px] border-[var(--color-primary)]/30 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"}
                                         >
                                             <ExternalLink class="h-3 w-3" />
@@ -362,9 +303,102 @@
                                     {/if}
                                 </div>
                             </div>
-                        </div>
-                    {/each}
-                </div>
+                        {/each}
+                    </section>
+                {/if}
+
+                {#if completedOrders.length > 0}
+                    <section class="space-y-2" aria-label="Completed orders">
+                        <p class="px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-muted-foreground)]">Completed orders</p>
+                        {#each completedOrders as order (order.id)}
+                            <div class="panel-card transition hover:border-[var(--color-border)]/60">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-mono text-sm font-semibold text-[var(--color-foreground)]">{order.orderNumber}</span>
+                                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none {statusBadgeClass(order.status)}">
+                                                {#if isRefreshing(order.orderNumber)}
+                                                    <BrailleSpinner size="sm" />
+                                                {:else}
+                                                    {completedStatusLabel(order)}
+                                                {/if}
+                                            </span>
+                                        </div>
+                                        {#if !hasTrackingCache(order)}
+                                            <p class="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--color-muted-foreground)]">
+                                                {#if refreshError(order.orderNumber)}
+                                                    <AlertCircle class="h-3 w-3 text-[var(--color-destructive)]" />
+                                                    {refreshError(order.orderNumber)}
+                                                {:else if isRefreshing(order.orderNumber)}
+                                                    Fetching the latest tracking details...
+                                                {:else}
+                                                    Tracking details have not been checked yet.
+                                                {/if}
+                                            </p>
+                                        {/if}
+                                        {#if order.amount}
+                                            <p class="mt-1 text-xs font-bold text-[var(--color-primary)]">
+                                                {formatMoney(order.amount.value, order.amount.currency)}
+                                            </p>
+                                        {/if}
+                                        {#if order.deliveryDate}
+                                            <p class="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]">
+                                                Delivery: {formatDate(order.deliveryDate)}
+                                            </p>
+                                        {/if}
+                                        {#if order.recipient?.name || order.recipient?.city}
+                                            <p class="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]">
+                                                {order.recipient?.name}{#if order.recipient?.name && order.recipient?.city} &middot; {/if}{order.recipient?.city}
+                                            </p>
+                                        {/if}
+                                        {#if trackingSteps(order).length > 0}
+                                            <div class="mt-2 space-y-1">
+                                                {#each trackingSteps(order).slice(0, 3) as step, i (i)}
+                                                    <div class="flex items-center gap-1.5 text-[10px] text-[var(--color-muted-foreground)]">
+                                                        {#if i === 0}
+                                                            <CheckCircle2 class="h-3 w-3 text-[var(--color-success)]" />
+                                                        {:else}
+                                                            <Circle class="h-3 w-3" />
+                                                        {/if}
+                                                        <span class="truncate">{step.step}</span>
+                                                    </div>
+                                                {/each}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                    <div class="flex shrink-0 flex-col gap-1.5">
+                                        <Button
+                                            type="button"
+                                            onclick={() => ui.open("order-tracking" as any, { kind: "dynamic", data: { ...order, progress: order.tracking } })}
+                                            variant="outline"
+                                            size="sm"
+                                            class="h-auto gap-1 px-2.5 py-1 text-[10px]"
+                                        >
+                                            <Truck class="h-3 w-3" />
+                                            View
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onclick={() => refreshOrder(order, { force: true, toast: true })}
+                                            variant="outline"
+                                            size="sm"
+                                            class="h-auto gap-1 px-2.5 py-1 text-[10px]"
+                                            disabled={isRefreshing(order.orderNumber)}
+                                        >
+                                            {#if isRefreshing(order.orderNumber)}
+                                                <BrailleSpinner size="sm" />
+                                            {:else}
+                                                <RefreshCw class="h-3 w-3" />
+                                            {/if}
+                                            Refresh
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    </section>
+                {/if}
             </div>
-        {/if}
+        </div>
+    {/if}
 </div>

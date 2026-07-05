@@ -1,4 +1,4 @@
-import type { OrderRecord } from "$lib/stores/session.svelte";
+import type { CreatedOrderRecord } from "$lib/stores/session.svelte";
 import type { OrderResult } from "$lib/shopping-engine";
 
 export type CreateOrderLineItem = {
@@ -35,11 +35,12 @@ export async function createOrder(payload: CreateOrderPayload): Promise<CreatedO
   return data as CreatedOrder;
 }
 
-export function createOrderRecord(order: CreatedOrder): OrderRecord | null {
+export function createOrderRecord(order: CreatedOrder): CreatedOrderRecord | null {
   const orderRef = order.orderRef ?? order.orderNumber;
   if (!orderRef) return null;
   return {
-    orderNumber: orderRef,
+    kind: "created",
+    id: orderRef,
     orderRef,
     paymentUrl: order.paymentUrl,
     expiresAt: order.expiresAt,

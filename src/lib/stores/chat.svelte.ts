@@ -195,7 +195,20 @@ class ChatStore {
           shoppingOccasionHistory: session.preferences.shoppingOccasionHistory,
           budgetRangePreference: session.preferences.budgetRangePreference,
         },
-        orderCount: session.orderHistory.length,
+        createdOrderCount: session.createdOrders.length,
+        completedOrderCount: session.completedOrders.length,
+        createdOrders: session.createdOrders.map(order => ({
+          orderRef: order.orderRef,
+          status: order.status,
+          statusDisplay: order.statusDisplay,
+          expiresAt: order.expiresAt,
+        })),
+        completedOrders: session.completedOrders.map(order => ({
+          orderNumber: order.orderNumber,
+          status: order.status,
+          statusDisplay: order.statusDisplay,
+          deliveryDate: order.deliveryDate,
+        })),
         conversationTopics: session.conversationTopics,
       },
     };

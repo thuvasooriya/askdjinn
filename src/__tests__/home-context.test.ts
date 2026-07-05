@@ -38,8 +38,8 @@ describe("stableContextKey", () => {
   });
 
   test("changes when context changes (cache auto-busts)", () => {
-    const before = stableContextKey({ agentName: "Djinn", orderHistory: ["A"] });
-    const after = stableContextKey({ agentName: "Djinn", orderHistory: ["A", "B"] });
+    const before = stableContextKey({ agentName: "Djinn", completedOrders: [{ orderNumber: "A" }] });
+    const after = stableContextKey({ agentName: "Djinn", completedOrders: [{ orderNumber: "A" }, { orderNumber: "B" }] });
     expect(before).not.toBe(after);
   });
 });

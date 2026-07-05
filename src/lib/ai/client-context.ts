@@ -64,7 +64,7 @@ export function buildClientToolContext(): ClientToolContext {
     },
     onAskUser: (question, options) => new Promise<string>((resolve) => ui.setAskUser(question, options, resolve)),
     onSetDeliveryEstimate: (estimate) => cart.setDeliveryEstimate(estimate),
-    onGetOrderRecord: (orderNumber) => session.getOrderRecord(orderNumber),
+    onGetCompletedOrderRecord: (orderNumber) => session.getCompletedOrderRecord(orderNumber),
     onUpsertOrderRecord: (record) => session.upsertOrderRecord(record),
     onShowPanel: (config) => ui.showPanel(config as { type: never; title?: string; data?: Record<string, unknown> }),
 

@@ -46,6 +46,29 @@ const watchItemSchema = likedItemSchema.extend({
   targetPrice: z.number().optional().nullable(),
 });
 
+const orderSummarySchema = z.object({
+  itemsTotal: z.number().optional(),
+  deliveryFee: z.number().optional(),
+  addonsTotal: z.number().optional(),
+  grandTotal: z.number().optional(),
+  currency: z.string().optional(),
+}).partial();
+
+const createdOrderSchema = z.object({
+  orderRef: z.string(),
+  status: z.string().optional(),
+  statusDisplay: z.string().optional(),
+  expiresAt: z.string().optional(),
+  summary: orderSummarySchema.optional(),
+});
+
+const completedOrderSchema = z.object({
+  orderNumber: z.string(),
+  status: z.string().optional(),
+  statusDisplay: z.string().optional(),
+  deliveryDate: z.string().optional(),
+});
+
 const homeContextSchema = z.object({
   // Greeting inputs.
   agentName: z.string(),
@@ -56,7 +79,8 @@ const homeContextSchema = z.object({
   // Shared shopping context.
   liked: z.array(likedItemSchema).default([]),
   watch: z.array(watchItemSchema).default([]),
-  orderHistory: z.array(z.string()).default([]),
+  createdOrders: z.array(createdOrderSchema).default([]),
+  completedOrders: z.array(completedOrderSchema).default([]),
   savedFacts: z.array(z.string()).default([]),
   city: z.string().optional().nullable(),
   recentSearches: z.array(z.string()).optional().default([]),
@@ -133,7 +157,7 @@ ${greetingRulesBlock(body)}
 
 === SUMMARY RULES ===
 - 2-3 sentences, friendly, conversational daily summary.
-- Highlight if liked items are in stock, any orders being tracked, or recommendations based on the delivery city.
+- Highlight if liked items are in stock, created orders need payment, completed orders have tracking updates, or recommendations fit the delivery city.
 - CRITICAL: DO NOT include any greetings (no "Hi", "Hello", "Good morning"). Start directly with the summary content.
 - Formatting: you may use **bold** for key terms only (product names, order IDs, prices, cities). No headers, no links, no images, no bullet/numbered lists, no code blocks.
 
@@ -155,7 +179,8 @@ ${iconList}
 - ${body.city ? `Delivery city: ${body.city}.` : "No city set."}
 - Liked items: ${JSON.stringify(body.liked)}
 - Watching (price/stock alerts): ${JSON.stringify(body.watch)}
-- Orders tracked: ${JSON.stringify(body.orderHistory)}
+- Created click-to-pay orders (not trackable until paid): ${JSON.stringify(body.createdOrders)}
+- Completed trackable orders: ${JSON.stringify(body.completedOrders)}
 - Recent searches: ${JSON.stringify(body.recentSearches)}
 - Saved facts / preferences: ${JSON.stringify(body.savedFacts)}
 
