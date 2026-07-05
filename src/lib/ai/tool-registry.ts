@@ -274,7 +274,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_search: {
     name: "product_search",
-    description: "Search Kapruka's catalog; results appear in the product grid automatically. ALWAYS provide a descriptive `q` query (e.g. 'gift for her', 'birthday cake', 'rose bouquet') — the upstream catalog requires a text query, so category-only searches with empty `q` fail or return nothing. Prefer concrete phrases over single generic words ('flowers', 'chocolate'), which often return 0. Use `category` only to NARROW a `q` search, never on its own. Use this before recommending any product; if it returns 0 or errors, retry with a different phrase before telling the user nothing is available.",
+    description: "Search Kapruka's catalog by product NAME; results appear in the product grid automatically. The catalog matches words in product names, not concepts — keep `q` short and noun-focused (e.g. 'cake', 'smart watch', 'novel'); avoid 'trending'/'popular'/'best' which match nothing useful. For trending/bestsellers/new arrivals set `category` to 'bestsellers', 'newadditions', or 'promotions' rather than searching those words. A category may be used on its own. Do NOT use web_search to find products. Use this before recommending any product.",
     parameters: {
       type: "object",
       properties: {

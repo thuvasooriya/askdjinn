@@ -477,7 +477,7 @@ class LiveVoiceStore {
           this.pendingDisconnect = false;
           this.disconnect();
         }
-      }, 3000);
+      }, 8000);
     }
   }
 

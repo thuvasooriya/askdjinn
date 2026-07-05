@@ -1,5 +1,5 @@
 better float agent display for tool cards
-check delivery fee beforehand
+check delivery fee beforehand, find the earliest by default find the delivery date available
 
 exciting landing page
 A supernatural being with extraordinary powers that usually takes a human form and serves its summoner.

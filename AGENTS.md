@@ -55,7 +55,9 @@ accurate error handling, proper status codes, no mock data.
 
 - `main` bookmark tracks the published state
 - Working copy `@` is always a child of the current bookmark
-- After review: `jj bookmark set main -r @-` squashes the stack
+- After review: `jj bookmark set main -r @-` moves `main` to the parent of working copy (the latest commit)
+- Push to remote: `jj git push --remote origin --bookmark main`
+- First push to a new remote: same command — `jj git push --remote origin --bookmark main`
 - No remote? Bookmark exists locally; git branch syncs automatically
 
 ### Example Workflow

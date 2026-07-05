@@ -5,11 +5,11 @@ import { readFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version?: string };
 const buildId =
-  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ??
-  process.env.CF_PAGES_COMMIT_SHA?.slice(0, 12) ??
-  process.env.GITHUB_SHA?.slice(0, 12) ??
-  process.env.BUILD_ID ??
-  "local";
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ||
+  process.env.CF_PAGES_COMMIT_SHA?.slice(0, 12) ||
+  process.env.GITHUB_SHA?.slice(0, 12) ||
+  process.env.BUILD_ID ||
+  (process.env.VERCEL ? "vercel" : "local");
 
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
