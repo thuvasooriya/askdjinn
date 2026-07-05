@@ -48,31 +48,26 @@
       ? [...products].sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
       : [...products];
     const agentPicks: Product[] = [];
-    const userPicks: Product[] = [];
     const rest: Product[] = [];
     for (const p of sorted) {
       if (ui.highlightedIds.has(p.id)) agentPicks.push(p);
-      else if (ui.userHighlights.has(p.id)) userPicks.push(p);
       else rest.push(p);
     }
-    return [...agentPicks, ...userPicks, ...rest];
+    return [...agentPicks, ...rest];
   }
-
-  // All highlighted products (agent picks first, then user highlights) across
-  // every thread, deduped by id — pinned to the top of the product pane so the
-  // best matches stay prominent regardless of which query surfaced them.
+  // All highlighted products across every thread, deduped by id — pinned to
+  // the top of the product pane so the best matches stay prominent regardless
+  // of which query surfaced them.
   const highlightedProducts = $derived.by(() => {
     const seen = new Set<string>();
     const agentPicks: Product[] = [];
-    const userPicks: Product[] = [];
     for (const thread of ui.searchThreads) {
       for (const p of thread.products) {
         if (seen.has(p.id)) continue;
         if (ui.highlightedIds.has(p.id)) { seen.add(p.id); agentPicks.push(p); }
-        else if (ui.userHighlights.has(p.id)) { seen.add(p.id); userPicks.push(p); }
       }
     }
-    return [...agentPicks, ...userPicks];
+    return agentPicks;
   });
   function handleClick(product: Product) {
     interaction.onClick(product);
@@ -112,13 +107,13 @@
       <div class="thread-grid highlights-grid">
         {#each highlightedProducts as product (product.id)}
           {@const isHighlighted = ui.highlightedIds.has(product.id)}
-          {@const isUserHighlighted = ui.userHighlights.has(product.id)}
+
           {@const annotation = ui.annotations.get(product.id)}
           <div class="thread-product" data-product-id={product.id}>
             <ProductCard
               {product}
               highlighted={isHighlighted}
-              userHighlighted={isUserHighlighted}
+
               {annotation}
               onClick={handleClick}
             />
@@ -140,7 +135,7 @@
     {:else}
       {#each ui.searchThreads as thread (thread.id)}
         {@const productCount = thread.products.length}
-        {@const pickCount = thread.products.filter(p => ui.highlightedIds.has(p.id) || ui.userHighlights.has(p.id)).length}
+        {@const pickCount = thread.products.filter(p => ui.highlightedIds.has(p.id)).length}
         <section class="thread-section">
           <div class="thread-bar">
             <span class="thread-query">{thread.query || "Search results"}</span>
@@ -157,13 +152,13 @@
           <div class="thread-grid">
             {#each sortedProducts(thread.products) as product (product.id)}
               {@const isHighlighted = ui.highlightedIds.has(product.id)}
-              {@const isUserHighlighted = ui.userHighlights.has(product.id)}
+
               {@const annotation = ui.annotations.get(product.id)}
               <div class="thread-product" data-product-id={product.id} animate:flip={{ duration: reduceMotion ? 1 : 240 }}>
                 <ProductCard
                   {product}
                   highlighted={isHighlighted}
-                  userHighlighted={isUserHighlighted}
+
                   {annotation}
                   onClick={handleClick}
                 />

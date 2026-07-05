@@ -175,7 +175,8 @@ class ChatStore {
       interactionContext: interaction.contextString,
       cartContext: this.buildCartContext(),
       cartItems: cart.items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, currency: i.product.currency, quantity: i.quantity })),
-      userHighlightIds: ui.getUserHighlights(),
+
+
       layoutContext: buildLayoutContext(ui.panels, ui.tier, ui.activePanelId),
       visibleProducts: ui.searchThreads.map(t => ({
         query: t.query,
@@ -186,7 +187,7 @@ class ChatStore {
           currency: p.currency,
           highlighted: ui.highlightedIds.has(p.id),
           highlightReason: ui.annotations.get(p.id),
-          userHighlighted: ui.userHighlights.has(p.id),
+
         })),
       })),
       activeProductContext: {

@@ -1,14 +1,13 @@
 <script lang="ts">
-    import { MicOff } from "@lucide/svelte";
+    import { MicOff, Captions } from "@lucide/svelte";
     import { fade } from "svelte/transition";
     import AgentOrb, { type OrbState } from "./AgentOrb.svelte";
     import OptionsMenu from "./shell/OptionsMenu.svelte";
     import ChatComposer from "./shell/ChatComposer.svelte";
-    import { useChat } from "$lib/stores/chat.svelte";
+    import { useSessionPhase } from "$lib/stores/session-phase.svelte";
     import { useConversation } from "$lib/stores/conversation.svelte";
     import { useLiveVoice } from "$lib/stores/live-voice.svelte";
     import { useProfile } from "$lib/stores/profile.svelte";
-    import { useAgentStatus } from "$lib/stores/agent-status.svelte";
     import { useUI } from "$lib/stores/ui.svelte";
     import { useMediaAttach } from "$lib/attach-media.svelte";
     import WebcamCaptureModal from "./shell/WebcamCaptureModal.svelte";
@@ -26,11 +25,10 @@
     } = $props();
 
     const ui = useUI();
-    const chat = useChat();
+    const sessionPhase = useSessionPhase();
     const conv = useConversation();
     const liveVoice = useLiveVoice();
     const profile = useProfile();
-    const agentStatus = useAgentStatus();
 
     let pressing = $state(false);
     let longPressTriggered = $state(false);
@@ -58,45 +56,19 @@
         if (progressRAF) cancelAnimationFrame(progressRAF);
     });
 
-    const liveState = $derived(liveVoice.state);
-    const orbState = $derived<OrbState>(
-        chat.isStreaming
-            ? "thinking"
-            : liveActive
-              ? liveState === "speaking"
-                  ? "speaking"
-                  : liveState === "listening"
-                    ? "listening"
-                    : liveState === "connecting" || liveState === "connected"
-                      ? "thinking"
-                      : liveState === "error"
-                        ? "error"
-                        : "idle"
-              : agentStatus.isActive
-                ? "searching"
-                : "idle",
-    );
-
-    const hasPendingToolCall = $derived(
-        liveVoice.log.some(
-            (e) => e.type === "tool-call" && e.status === "pending",
-        ),
-    );
+    // Orb phase comes from the single session-phase store -- no more local
+    // re-derivation from liveVoice.state / chat.isStreaming / agentStatus.
+    // Priority: error > speaking > listening > tool-running > thinking > idle.
     const displayOrbState = $derived<OrbState>(
-        hasPendingToolCall && orbState !== "speaking" && orbState !== "error"
-            ? "searching"
-            : orbState,
+        sessionPhase.phase === "error" ? "error"
+        : sessionPhase.phase === "speaking" ? "speaking"
+        : sessionPhase.phase === "listening" ? "listening"
+        : sessionPhase.phase === "tool-running" || sessionPhase.hasPendingToolCall ? "searching"
+        : sessionPhase.phase === "connecting"
+          || sessionPhase.phase === "thinking"
+          || sessionPhase.phase === "text-streaming" ? "thinking"
+        : "idle",
     );
-
-    const liveStatusLabel = $derived.by(() => {
-        if (!liveActive) return null;
-        if (liveState === "connecting" || liveState === "connected")
-            return "Connecting...";
-        if (liveState === "listening") return "Listening";
-        if (liveState === "speaking") return `${profile.agent.name} speaking`;
-        if (liveState === "error") return "Connection lost";
-        return "Live";
-    });
 
     function toggleLive() {
         if (liveActive) {
@@ -151,7 +123,7 @@
     });
 </script>
 
-<div class="agent-bar-container">
+<div class="agent-bar-container" data-bubble-preserve>
 
     <!-- ──────────────────────────────────────────────────────────────────── -->
 
@@ -187,6 +159,20 @@
                     audioLevel={liveVoice.audioLevel}
                 />
             </div>
+
+            <!-- Transcript toggle: show/hide voice transcript bubbles -->
+            <button
+                type="button"
+                onclick={() => (ui.voiceTranscript = !ui.voiceTranscript)}
+                class="glass-btn"
+                aria-label={ui.voiceTranscript ? "Hide transcript" : "Show transcript"}
+                aria-pressed={ui.voiceTranscript}
+                title={ui.voiceTranscript ? "Hide transcript" : "Show transcript"}
+                style:opacity={ui.voiceTranscript ? 1 : 0.5}
+                transition:fade={{ duration: 150 }}
+            >
+                <Captions class="h-4 w-4" />
+            </button>
 
             <!-- Options button in live mode (no voice — already live) -->
             <div class="relative" transition:fade={{ duration: 150 }}>

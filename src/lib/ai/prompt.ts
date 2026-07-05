@@ -31,9 +31,7 @@ export type PromptContext = {
   /** Structured cart contents, mirrored from the client so server-side tool
    *  executors (e.g. cart_get_contents) return real data instead of placeholders. */
   cartItems?: Array<{ id: string; name: string; price?: number; currency?: string; quantity: number }>;
-  /** Product ids the user has clicked/highlighted on screen, mirrored so the
-   *  product_get_user_highlights server executor returns real data. */
-  userHighlightIds?: string[];
+
   sessionContext?: {
     isReturningUser?: boolean;
     preferredCity?: string;
@@ -70,7 +68,7 @@ export type PromptContext = {
   };
   /** Products currently visible in the product panel — query threads + product IDs/names/prices.
    *  Prevents redundant re-searches when the user asks follow-up questions. */
-  visibleProducts?: Array<{ query: string; products: Array<{ id: string; name: string; price?: number; currency?: string; highlighted?: boolean; highlightReason?: string; userHighlighted?: boolean }> }>;
+  visibleProducts?: Array<{ query: string; products: Array<{ id: string; name: string; price?: number; currency?: string; highlighted?: boolean; highlightReason?: string }> }>;
   /** Currently inspected product, if the detail panel or image gallery is open.
    *  This is the highest-priority referent for "this", "it", "that one", etc. */
   activeProductContext?: {
@@ -218,15 +216,15 @@ ORDERS:
 
 UI CONTROL (CRITICAL - DO NOT NARRATE, USE TOOLS):
 - When you search, products appear automatically in the product panel. Do NOT list product names in text.
-- After searching, inspect the returned products as a comparison set, then call product_highlight for your top 1-3 defensible picks. Include a reason for each highlight. The reason must NOT repeat the product name, price, or currency — those are already visible on the card. Focus on why it's a good pick (e.g. bundle deal, matches request, premium finish, good rating).
-- Use product_clear_highlight when moving to a new topic or search.
+- After searching, inspect the returned products as a comparison set, then call product_add_highlight for your top 1-3 defensible picks. Include a reason for each highlight. The reason must NOT repeat the product name, price, or currency — those are already visible on the card. Focus on why it's a good pick (e.g. bundle deal, matches request, premium finish, good rating). Highlights accumulate; use product_remove_highlight to remove them.
+- Use product_remove_highlight to remove highlights from products when the user dismisses a recommendation or moves on. Use product_get_highlight to read the current list.
 - Use product_open_detail to show details, product_close_detail when moving on.
 - Use product_scroll_to to bring attention to a specific card.
 - Use product_gallery_open only when the user explicitly asks for pictures/images/a closer look at visuals. Do NOT auto-open the gallery when the user just asks to see product details.
 - Reuse product IDs already returned by product_search, highlighted in the UI, or present in visible product panels. Do NOT call product_search again just to open details, add to cart, scroll to, or highlight a product that is already visible/cached.
 - Do NOT re-search a query that is already visible on screen. The system prompt tells you what products are currently displayed — reference those IDs directly.
 - Use product_get_details only when you need fresh full details for a specific known product ID that is not already represented well enough in the UI/cache. After product_get_details, use the same product_id for product_open_detail or cart_add (via items[]).
-- Product reference priority: if the gallery is open, treat "this picture/product" as that gallery product; otherwise if a product-detail panel is open, treat "this/it/that one" as that detail product; otherwise use user-clicked highlights; otherwise use visible search results from the existing search thread; only run a new product_search when the request introduces a new need or the product is not already visible/cached.
+- Product reference priority: if the gallery is open, treat "this picture/product" as that gallery product; otherwise if a product-detail panel is open, treat "this/it/that one" as that detail product; otherwise use visible search results from the existing search thread; only run a new product_search when the request introduces a new need or the product is not already visible/cached.
 - When the user asks "show it", "show details", "show me", or similar, use product_open_detail to open the product detail panel. Only use product_gallery_open when the user explicitly asks for pictures, images, a closer visual look, or "let me see it" — not as part of the default detail flow. Use product_gallery_navigate for "next/previous picture".
 - When the user moves from a product/gallery into a new search, cart/order work, tracking, or any unrelated task, call product_gallery_close so the overlay does not linger.
 - Do not claim you literally see or inspect Kapruka gallery images unless the user uploaded an image to chat. You may describe known product data and say you opened the gallery for them.
@@ -252,10 +250,6 @@ HIGHLIGHT ANNOTATIONS:
 - If evidence is missing, use cautious language: "Good fit", "Promising pick", "Matches request" instead of unsupported superlatives.
 - The reason appears on the product card, so keep it short and specific, usually 2-6 words.
 
-USER HIGHLIGHTS:
-- The user can click products to highlight them (shown with an accent ring).
-- Use product_get_user_highlights to see what the user clicked before giving advice.
-- This tells you what the user is interested in, so you can tailor your response.
 
 ASK USER:
 - Use ui_ask_user for multiple-choice questions when you need a clear decision (e.g. choosing between options).
@@ -331,7 +325,6 @@ function buildVisibleProducts(context?: PromptContext): string {
       const price = p.price != null ? `, ${p.price} ${p.currency ?? "LKR"}` : "";
       const markers = [
         p.highlighted ? `agent-pick${p.highlightReason ? `: ${p.highlightReason}` : ""}` : null,
-        p.userHighlighted ? "user-highlighted" : null,
       ].filter(Boolean).join(", ");
       return `${p.id} (${p.name}${price}${markers ? `, ${markers}` : ""})`;
     }).join("; ");

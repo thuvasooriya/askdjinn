@@ -38,7 +38,7 @@ describe("tool-registry", () => {
   test("getToolNames returns all names", () => {
     const names = getToolNames();
     expect(names).toContain("product_search");
-    expect(names).toContain("product_highlight");
+    expect(names).toContain("product_add_highlight");
     expect(names).toContain("order_create");
     expect(names).toContain("order_track");
     expect(names).toContain("order_get_created");
@@ -80,7 +80,7 @@ describe("tool-registry", () => {
   });
 
   test("UI_ONLY_TOOLS contains only ui category tools", () => {
-    expect(UI_ONLY_TOOLS.has("product_highlight")).toBe(true);
+    expect(UI_ONLY_TOOLS.has("product_add_highlight")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_open_detail")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_close_detail")).toBe(true);
     expect(UI_ONLY_TOOLS.has("product_scroll_to")).toBe(true);
@@ -137,7 +137,7 @@ describe("getLiveModeDeclarations", () => {
 describe("executeClientTool", () => {
   function makeMockCtx() {
     return {
-      onHighlight: (_items: Array<{ id: string; reason?: string }>) => {},
+      onAddHighlights: (_items: Array<{ id: string; reason?: string }>) => {},
       onOpenDetail: (_id: string) => {},
       onCloseDetail: () => {},
       onFilter: (_products: unknown[], _query?: string) => {},
@@ -145,8 +145,8 @@ describe("executeClientTool", () => {
       onAddToWishlist: (_id: string) => {},
       onSaveFact: (_text: string, _category: string) => {},
       onForget: () => {},
-      onClearHighlight: () => {},
-      onGetUserHighlights: () => [] as string[],
+      onRemoveHighlights: (_ids: string[]) => {},
+      onGetHighlights: () => [] as Array<{ id: string; reason?: string }>,
       onAddToCart: (_id: string, _qty?: number) => false,
       onRegisterProduct: (_product: { id: string; name: string; price?: number; currency?: string; imageUrl?: string; productUrl?: string }) => {},
       onRemoveFromCart: (_id: string) => {},
@@ -180,11 +180,11 @@ describe("executeClientTool", () => {
     };
   }
 
-  test("product_highlight calls onHighlight with items", async () => {
+  test("product_add_highlight calls onAddHighlights with items", async () => {
     let highlighted: Array<{ id: string; reason?: string }> = [];
-    const ctx = { ...makeMockCtx(), onHighlight: (items: Array<{ id: string; reason?: string }>) => { highlighted = items; } };
+    const ctx = { ...makeMockCtx(), onAddHighlights: (items: Array<{ id: string; reason?: string }>) => { highlighted = items; } };
     const result = await executeClientTool(
-      { id: "1", name: "product_highlight", args: { items: [{ id: "a", reason: "Best value" }, { id: "b" }] } },
+      { id: "1", name: "product_add_highlight", args: { items: [{ id: "a", reason: "Best value" }, { id: "b" }] } },
       ctx,
     );
     expect(result.response.highlighted).toBe(2);

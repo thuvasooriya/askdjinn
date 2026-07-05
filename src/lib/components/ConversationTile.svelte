@@ -13,7 +13,7 @@
   import AgentOrb from "./AgentOrb.svelte";
 
   import { useChat } from "$lib/stores/chat.svelte";
-  import { Copy, Brain } from "@lucide/svelte";
+  import { Copy, Brain, ChevronDown } from "@lucide/svelte";
   import { useUI } from "$lib/stores/ui.svelte";
   import { toasts } from "$lib/ui/toast";
   import ChatComposer from "./shell/ChatComposer.svelte";
@@ -224,8 +224,13 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
       </div>
     </div>
   {/if}
-  <!-- Chat input surface (shared with AgentBar) -->
-  <ChatComposer variant="panel" {liveActive} />
+  <!-- Chat input surface + collapse button -->
+  <div class="conv-bottom">
+    <ChatComposer variant="panel" {liveActive} />
+    <button type="button" class="collapse-btn conv-collapse" onclick={() => ui.toggleConversation()} aria-label="Collapse chat" title="Collapse">
+      <ChevronDown class="h-3.5 w-3.5" />
+    </button>
+  </div>
 </div>
 
 <style>
@@ -472,6 +477,18 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
   .collapse-btn:hover {
     color: var(--color-foreground);
     background-color: var(--color-muted);
+  }
+
+  .conv-bottom {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.375rem;
+  }
+  .conv-collapse {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: 0.25rem;
   }
   @media (prefers-reduced-motion: reduce) {
     .conv-tile { transition-duration: 0.01ms; }

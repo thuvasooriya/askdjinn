@@ -1,12 +1,13 @@
-better float agent display for tool cards
-check delivery fee beforehand, find the earliest by default find the delivery date available
-
 exciting landing page
 A supernatural being with extraordinary powers that usually takes a human form and serves its summoner.
+what's the fun in that.
 
-tutorial
-tool display cards
-api rate limit notice
+- [ ] take photo option is not rendering correctly
+- [ ] check and correct image input in llm text mode
+
+- [ ] tutorial
+- [ ] tool display cards
+- [ ] handle api rate limits
 
 - [ ] voice assistant hanging without disconnect
 

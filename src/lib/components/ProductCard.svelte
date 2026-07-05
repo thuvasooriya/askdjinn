@@ -11,14 +11,14 @@
     product,
     highlighted = false,
     selected = false,
-    userHighlighted = false,
     annotation = undefined as string | undefined,
+
     onClick,
   }: {
     product: Product;
     highlighted?: boolean;
     selected?: boolean;
-    userHighlighted?: boolean;
+
     annotation?: string;
     onClick?: (product: Product) => void;
   } = $props();
@@ -82,7 +82,7 @@
   const minVariantPrice = $derived(hasVariantPriceRange ? Math.min(...variantPrices) : 0);
   const maxVariantPrice = $derived(hasVariantPriceRange ? Math.max(...variantPrices) : 0);
 
-  const stripAnnotation = $derived(annotation ?? (userHighlighted ? "Your pick" : "Top pick"));
+  const stripAnnotation = $derived(annotation ?? "Top pick");
 
   // Character-based title truncation.
   //
@@ -154,7 +154,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="product-card-wrapper" class:highlighted class:user-highlighted={userHighlighted}>
+<div class="product-card-wrapper" class:highlighted>
   <div
     onclick={handleClick}
     onkeydown={handleKeydown}
@@ -224,15 +224,11 @@
       {#if highlighted}
         <div
           class="product-card-highlight-chip"
-          class:user-highlighted={userHighlighted}
           title={stripAnnotation}
-          aria-label={userHighlighted ? `Your pick: ${stripAnnotation}` : `Agent pick: ${stripAnnotation}`}
+          aria-label="Agent pick: {stripAnnotation}"
         >
-          {#if userHighlighted}
-            <Heart class="product-card-highlight-icon fill-current" />
-          {:else}
-            <Star class="product-card-highlight-icon fill-current" />
-          {/if}
+          <Star class="product-card-highlight-icon fill-current" />
+
           <span
             class="product-card-highlight-text"
             class:scrolling={highlightTextOverflow}
@@ -288,9 +284,8 @@
     --card-radius: var(--radius-lg);
     --card-radius-outer: calc(var(--radius-lg) + 4px);
 
-    /* Accent defaults to "agent pick"; overridden below for user picks.
-       Every highlighted/user-highlighted rule reads from this single
-       variable instead of duplicating a whole ruleset per state. */
+    /* Accent defaults to "agent pick". All highlighted rules read from this
+       single variable instead of duplicating a whole ruleset per state. */
     --accent: var(--color-primary);
 
     position: relative;
@@ -305,9 +300,7 @@
     transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
   }
 
-  .product-card-wrapper.user-highlighted {
-    --accent: var(--color-accent);
-  }
+
 
   .product-card-wrapper.highlighted {
     background:

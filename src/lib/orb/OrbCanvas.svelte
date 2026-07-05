@@ -14,7 +14,7 @@
   };
   const fsSrc = fragSrc.replace(/#include\s+(\S+)/g, (_, p) => GLSL_CHUNKS[p] ?? `// unresolved include: ${p}`);
 
-  let { orb, audioLevel = 0, interactive = true, size = 300, onHoldComplete = undefined as (() => void) | undefined }: { orb: OrbState; audioLevel?: number; interactive?: boolean; size?: number; onHoldComplete?: () => void } = $props();
+  let { orb, audioLevel = 0, interactive = true, size = 300 }: { orb: OrbState; audioLevel?: number; interactive?: boolean; size?: number } = $props();
 
   let canvas: HTMLCanvasElement;
 
@@ -89,14 +89,6 @@
       if (!gl) return;
       const now = performance.now();
       const t = (now - start) / 1000 * orb.design.morphSpeed;
-
-
-      if (orb.mode === 'connecting' && (now - orb.transitionStart) > 1500) {
-        orb.switchState('live', 'idle');
-      }
-      if (orb.mode === 'disconnecting' && (now - orb.transitionStart) > 1500) {
-        orb.switchState('llm', 'idle');
-      }
 
       if (orb.clickTime < 1.6) orb.clickTime += 1 / 60;
 
@@ -179,24 +171,8 @@
     orb.clickX = x;
     orb.clickY = y;
     orb.clickTime = 0;
-    orb.tryStartHold();
   }
 
-  $effect(() => {
-    if (!interactive) return;
-    const handler = () => {
-      if (orb.holding) {
-        const held = (performance.now() - orb.holdStart) / 1000;
-        if (held >= orb.design.holdDur) {
-          orb.completeHold();
-          onHoldComplete?.();
-        }
-      }
-      orb.cancelHold();
-    };
-    window.addEventListener('pointerup', handler);
-    return () => window.removeEventListener('pointerup', handler);
-  });
 </script>
 
 <div class="orb-shell" style="width:{size}px;height:{size}px;">

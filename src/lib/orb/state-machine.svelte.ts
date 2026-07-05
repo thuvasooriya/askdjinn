@@ -144,8 +144,6 @@ export function createOrbState() {
   let prevState = $state<State>('idle');
   let transitionStart = $state(performance.now());
   let design = $state<DesignParams>({ ...defaultDesign });
-  let holding = $state(false);
-  let holdStart = $state(0);
 
   let mouseX = $state(0);
   let mouseY = $state(0);
@@ -201,22 +199,6 @@ export function createOrbState() {
     transitionStart = performance.now();
   }
 
-  function tryStartHold() {
-    if (state === 'idle' && (mode === 'llm' || mode === 'live')) {
-      holding = true;
-      holdStart = performance.now();
-    }
-  }
-
-  function cancelHold() {
-    holding = false;
-  }
-
-  function completeHold() {
-    if (mode === 'llm') switchState('connecting', 'idle');
-    else if (mode === 'live') switchState('disconnecting', 'idle');
-    holding = false;
-  }
 
   function getStateButtons(): [State, string][] {
     const baseMode = (mode === 'connecting' || mode === 'disconnecting')
@@ -264,8 +246,6 @@ export function createOrbState() {
     get prevState() { return prevState; },
     get transitionStart() { return transitionStart; },
     get design() { return design; },
-    get holding() { return holding; },
-    get holdStart() { return holdStart; },
     get mouseX() { return mouseX; },
     set mouseX(v: number) { mouseX = v; },
     get mouseY() { return mouseY; },
@@ -284,9 +264,6 @@ export function createOrbState() {
     get displayState() { return getDisplayState(); },
     getCaptionText,
     switchState,
-    tryStartHold,
-    cancelHold,
-    completeHold,
     getStateButtons,
     getIsActiveState,
     applyAgentShape,

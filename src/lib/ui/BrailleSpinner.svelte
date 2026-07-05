@@ -18,12 +18,18 @@
   let grid = $state(brailleToGrid(""));
 
   $effect(() => {
+    // Snapshot deriveds into plain consts so the interval callback never
+    // reads a $derived after the effect is torn down (the source of the
+    // `derived_inert` warning when a {#key} wrapper destroys this component
+    // mid-tick).
+    const localFrames = frames;
+    const localInterval = interval;
     frame = 0;
-    grid = brailleToGrid(frames[0] ?? "");
+    grid = brailleToGrid(localFrames[0] ?? "");
     const timer = window.setInterval(() => {
-      frame = (frame + 1) % frames.length;
-      grid = brailleToGrid(frames[frame] ?? "");
-    }, interval);
+      frame = (frame + 1) % localFrames.length;
+      grid = brailleToGrid(localFrames[frame] ?? "");
+    }, localInterval);
     return () => window.clearInterval(timer);
   });
 </script>

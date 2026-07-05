@@ -98,16 +98,16 @@
     liveActive = true;
     conv.setMode("voice");
     try {
-      const ok = await liveVoice.connect(buildClientToolContext());
-      if (!ok) {
-        toasts.error(liveVoice.error ?? "Failed to connect");
-        liveActive = false;
-        conv.setMode("text");
-      }
+      await liveVoice.connect(buildClientToolContext());
+      // All connect outcomes (success / timeout / ws-error) resolve through
+      // liveVoice.state. The $effect below is the single owner of the
+      // liveActive reset + error toast, so nothing to do here on !ok --
+      // previously this branch fired a second toast that doubled the $effect's.
     } catch (err) {
+      // Pre-connect throw (e.g. buildClientToolContext) -- state never moved
+      // to "connecting", so the $effect won't fire on "error". Surface it here;
+      // liveActive/mode cleanup still flows through the $effect via idle state.
       toasts.fromError(err, "Voice connection failed");
-      liveActive = false;
-      conv.setMode("text");
     }
   }
 

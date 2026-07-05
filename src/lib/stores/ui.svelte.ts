@@ -68,7 +68,6 @@ const VERSION = 1;
 
 type ProductHighlightState = {
   agent: Array<{ id: string; reason?: string }>;
-  user: string[];
 };
 
 export const defaultSearchCriteria: SearchCriteria = {
@@ -88,6 +87,9 @@ class UIStore {
   panels = $state<Panel[]>([]);
   activePanelId = $state<string | null>(null);
   agentInputOpen = $state(false);
+  /** Show transcript text bubbles during voice mode (default off — voice is
+   *  spoken, not read; tool bubbles still show either way). */
+  voiceTranscript = $state(false);
 
   /** Back-compat view of static open-panel ids (derived from the registry). */
   get openPanels(): Set<string> {
@@ -117,7 +119,6 @@ class UIStore {
   /** Search/highlight state */
   highlightedIds = $state<Set<string>>(new Set());
   annotations = $state<Map<string, string>>(new Map());
-  userHighlights = $state<Set<string>>(new Set());
   scrollToId = $state<string | null>(null);
   /** Gallery modal state */
   galleryState = $state<{
@@ -463,42 +464,46 @@ class UIStore {
     this.panelWidths = { ...this.panelWidths, [id]: Math.max(280, Math.min(600, width)) };
   }
 
-  highlight(items: Array<{ id: string; reason?: string }>) {
+  addHighlights(items: Array<{ id: string; reason?: string }>) {
     // IDs may arrive from the LLM as numbers; normalize to strings so they
     // match the string keys used everywhere else.
-    const ids = new Set<string>();
-    const annotations = new Map<string, string>();
+    const ids = new Set(this.highlightedIds);
+    const annotations = new Map(this.annotations);
     for (const item of items) {
       const id = String(item.id);
       ids.add(id);
       if (item.reason) annotations.set(id, item.reason);
     }
-    this.highlightedIds = ids;
+    // Keep the store capped at 20 highlights
+    const sorted = Array.from(ids);
+    if (sorted.length > 20) {
+      const excess = sorted.slice(0, sorted.length - 20);
+      for (const id of excess) annotations.delete(id);
+      this.highlightedIds = new Set(sorted.slice(sorted.length - 20));
+    } else {
+      this.highlightedIds = ids;
+    }
     this.annotations = annotations;
     this.saveHighlights();
   }
 
-  clearHighlight() {
-    this.highlightedIds = new Set();
-    this.annotations = new Map();
+  removeHighlights(ids: string[]) {
+    const next = new Set(this.highlightedIds);
+    const annotations = new Map(this.annotations);
+    for (const id of ids) {
+      next.delete(String(id));
+      annotations.delete(String(id));
+    }
+    this.highlightedIds = next;
+    this.annotations = annotations;
     this.saveHighlights();
   }
 
-  toggleUserHighlight(productId: string) {
-    const next = new Set(this.userHighlights);
-    if (next.has(productId)) next.delete(productId);
-    else next.add(productId);
-    this.userHighlights = next;
-    this.saveHighlights();
-  }
-
-  clearUserHighlights() {
-    this.userHighlights = new Set();
-    this.saveHighlights();
-  }
-
-  getUserHighlights(): string[] {
-    return Array.from(this.userHighlights);
+  getHighlights(): Array<{ id: string; reason?: string }> {
+    return Array.from(this.highlightedIds).map(id => ({
+      id,
+      reason: this.annotations.get(id),
+    }));
   }
 
   setAskUser(question: string, options: string[], resolve: (answer: string) => void) {
@@ -618,24 +623,19 @@ class UIStore {
   }
 
   private loadHighlights() {
-    const stored = persist.load<ProductHighlightState>(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent: [], user: [] });
+    const stored = persist.load<ProductHighlightState>(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent: [] });
     const known = (id: string) => this.productRegistry.has(String(id));
     const agent = stored.agent.filter(item => known(item.id));
-    const user = stored.user.map(String).filter(known);
     this.highlightedIds = new Set(agent.map(item => String(item.id)));
     this.annotations = new Map(agent.flatMap(item => item.reason ? [[String(item.id), item.reason] as const] : []));
-    this.userHighlights = new Set(user);
   }
 
   private saveHighlights() {
     const agent = Array.from(this.highlightedIds)
       .filter(id => this.productRegistry.has(id))
       .map(id => ({ id, reason: this.annotations.get(id) }))
-      .slice(0, 12);
-    const user = Array.from(this.userHighlights)
-      .filter(id => this.productRegistry.has(id))
-      .slice(0, 24);
-    persist.save(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent, user });
+      .slice(0, 20);
+    persist.save(PRODUCT_HIGHLIGHTS_STORE_ID, VERSION, { agent });
   }
 
   getProduct(id: string): Product | undefined {
@@ -709,7 +709,7 @@ class UIStore {
   resetView() {
     this.highlightedIds = new Set();
     this.annotations = new Map();
-    this.userHighlights = new Set();
+
     persist.clear(PRODUCT_HIGHLIGHTS_STORE_ID);
     this.scrollToId = null;
     this.galleryState = null;

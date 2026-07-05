@@ -43,7 +43,6 @@ class LiveVoiceStore {
   inputTranscript = $state("");
   outputTranscript = $state("");
   audioLevel = $state(0);
-  isModelSpeaking = $state(false);
   videoStream = $state<MediaStream | null>(null);
   log = $state<LiveLogEntry[]>([]);
 
@@ -357,7 +356,6 @@ class LiveVoiceStore {
         if (part.inlineData) {
           const inlineData = part.inlineData as { data: string; mimeType?: string };
           this.queueAudioPlayback(inlineData.data);
-          this.isModelSpeaking = true;
           this.state = "speaking";
         }
         if (part.text) {
@@ -386,7 +384,6 @@ class LiveVoiceStore {
     }
 
     if (content.turnComplete === true || content.interrupted === true) {
-      this.isModelSpeaking = false;
       if (this.state === "speaking") {
         this.state = "listening";
       }
@@ -510,7 +507,6 @@ class LiveVoiceStore {
       this.addLog("info", "Session ended");
     }
     this.ws = null;
-    this.isModelSpeaking = false;
     if (this.state !== "error") {
       this.state = "idle";
     }
@@ -643,7 +639,8 @@ class LiveVoiceStore {
       notifications: lists.notifications,
       cartContext: !cart.items.length ? "Cart is empty." : cart.items.map((item, i) => `${i + 1}. ${item.product.name} x${item.quantity} (${formatMoney((item.product.price ?? 0) * item.quantity, item.product.currency)})`).join("\n"),
       cartItems: cart.items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, currency: i.product.currency, quantity: i.quantity })),
-      userHighlightIds: ui.getUserHighlights(),
+
+
       layoutContext: buildLayoutContext(ui.panels, ui.tier, ui.activePanelId),
       visibleProducts: ui.searchThreads.map(t => ({
         query: t.query,
@@ -654,7 +651,7 @@ class LiveVoiceStore {
           currency: p.currency,
           highlighted: ui.highlightedIds.has(p.id),
           highlightReason: ui.annotations.get(p.id),
-          userHighlighted: ui.userHighlights.has(p.id),
+
         })),
       })),
       activeProductContext: {

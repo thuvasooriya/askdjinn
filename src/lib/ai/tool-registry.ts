@@ -121,7 +121,7 @@ export interface ToolDefinition {
 }
 
 export interface ClientToolContext {
-  onHighlight: (items: Array<{ id: string; reason?: string }>) => void;
+  onAddHighlights: (items: Array<{ id: string; reason?: string }>) => void;
   onOpenDetail: (productId: string) => void;
   onCloseDetail: () => void;
   onFilter: (products: unknown[], query?: string) => void;
@@ -129,8 +129,8 @@ export interface ClientToolContext {
   onAddToWishlist: (productId: string) => boolean | void;
   onSaveFact: (text: string, category: string) => void;
   onForget: () => void;
-  onClearHighlight: () => void;
-  onGetUserHighlights: () => string[];
+  onRemoveHighlights: (ids: string[]) => void;
+  onGetHighlights: () => Array<{ id: string; reason?: string }>;
   onAddToCart: (productId: string, quantity?: number) => boolean;
   onRegisterProduct: (product: { id: string; name: string; price?: number; currency?: string; imageUrl?: string; images?: string[]; productUrl?: string }) => void;
   onRemoveFromCart: (productId: string) => void;
@@ -599,13 +599,13 @@ export const TOOLS: Record<string, ToolDefinition> = {
     },
   },
 
-  product_highlight: {
-    name: "product_highlight",
-    description: "Highlight specific products on the user's screen. Use after searching to draw attention to 1-3 defensible picks. Reasons must be accurate against the current result set; avoid unsupported superlatives like best value, cheapest, top rated, or fastest unless the returned product data proves them.",
+  product_add_highlight: {
+    name: "product_add_highlight",
+    description: "Add highlights to specific products on the user's screen. Highlights accumulate (use product_remove_highlight to remove them). Use after searching to draw attention to 1-3 defensible picks. Reasons must be accurate against the current result set; avoid unsupported superlatives like best value, cheapest, top rated, or fastest unless the returned product data proves them.",
     parameters: {
       type: "object",
       properties: {
-        items: param("array", "Products to highlight with optional reasons (1-5 max)", {
+        items: param("array", "Products to highlight with optional reasons (1-3 max)", {
           items: {
             type: "object",
             properties: {
@@ -621,8 +621,8 @@ export const TOOLS: Record<string, ToolDefinition> = {
     ui: { icon: Sparkles, label: "Highlighting" },
     category: "ui",
     executeClient: async (args, ctx) => {
-      const items = Array.isArray(args.items) ? (args.items as Array<{ id: string; reason?: string }>).slice(0, 5) : [];
-      ctx.onHighlight(items);
+      const items = Array.isArray(args.items) ? (args.items as Array<{ id: string; reason?: string }>).slice(0, 3) : [];
+      ctx.onAddHighlights(items);
       return { highlighted: items.length };
     },
   },
@@ -752,24 +752,36 @@ export const TOOLS: Record<string, ToolDefinition> = {
     executeClient: async (_args, ctx) => { ctx.onForget(); return { forgotten: true }; },
   },
 
-  product_clear_highlight: {
-    name: "product_clear_highlight",
-    description: "Clear all product highlights on the screen. Use when moving to a new topic or when the user dismisses a recommendation.",
-    parameters: { type: "object", properties: {}, required: [] },
-    ui: { icon: Eraser, label: "Clearing" },
+  product_remove_highlight: {
+    name: "product_remove_highlight",
+    description: "Remove highlights from specific products. Accepts multiple product IDs to remove in one call. Use when the user dismisses a recommendation or moves on from a product.",
+    parameters: {
+      type: "object",
+      properties: {
+        ids: param("array", "Product IDs to un-highlight (1-10 max)", {
+          items: { type: "string" },
+        }),
+      },
+      required: ["ids"],
+    },
+    ui: { icon: Eraser, label: "Removing highlight" },
     category: "ui",
-    executeClient: async (_args, ctx) => { ctx.onClearHighlight(); return { cleared: true }; },
+    executeClient: async (args, ctx) => {
+      const ids = Array.isArray(args.ids) ? (args.ids as string[]).slice(0, 10) : [];
+      ctx.onRemoveHighlights(ids);
+      return { removed: ids.length };
+    },
   },
 
-  product_get_user_highlights: {
-    name: "product_get_user_highlights",
-    description: "Get the list of product IDs the user has clicked/highlighted on the screen. Use this to understand what the user is interested in before giving advice.",
+  product_get_highlight: {
+    name: "product_get_highlight",
+    description: "Get the current list of highlighted products with their reasons. Use this to understand which products the agent has picked and why.",
     parameters: { type: "object", properties: {}, required: [] },
     ui: { icon: Eye, label: "Reading highlights" },
     category: "ui",
     executeClient: async (_args, ctx) => {
-      const ids = ctx.onGetUserHighlights();
-      return { highlightedByUser: ids, count: ids.length };
+      const highlights = ctx.onGetHighlights();
+      return { highlights, count: highlights.length };
     },
   },
 
@@ -1300,10 +1312,10 @@ export function summarizeToolCall(
       return { summary: `Web search "${args.query ?? ""}"`, detail: `${Array.isArray(response.results) ? response.results.length : 0} results` };
     case "web_fetch_url":
       return { summary: "Fetched page", detail: `${args.url}` };
-    case "product_highlight":
+    case "product_add_highlight":
       return { summary: `Highlighted ${Array.isArray(args.items) ? args.items.length : 0}` };
-    case "product_clear_highlight":
-      return { summary: "Cleared highlights" };
+    case "product_remove_highlight":
+      return { summary: `Removed ${Array.isArray(args.ids) ? args.ids.length : 0} highlights` };
     case "product_open_detail":
       return { summary: "Opened details", detail: `product ${args.product_id}` };
     case "product_close_detail":
@@ -1322,7 +1334,7 @@ export function summarizeToolCall(
       return { summary: "Saved a fact", detail: `${args.text}` };
     case "memory_forget_all":
       return { summary: "Forgot everything" };
-    case "product_get_user_highlights":
+    case "product_get_highlight":
       return { summary: `Read highlights (${response.count ?? 0})` };
     case "ui_ask_user":
       return { summary: response.selectedAnswer ? `Asked → "${response.selectedAnswer}"` : "Asked a question" };

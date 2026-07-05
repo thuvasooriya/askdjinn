@@ -30,7 +30,7 @@ export function buildClientToolContext(): ClientToolContext {
   const addresses = useAddresses();
 
   return {
-    onHighlight: (items) => ui.highlight(items),
+    onAddHighlights: (items) => ui.addHighlights(items),
     onRegisterProduct: (product) => ui.registerProduct(product as Product),
     onOpenDetail: (id) => ui.openProductDetail(id),
     onCloseDetail: () => ui.closeProductDetail(),
@@ -45,9 +45,8 @@ export function buildClientToolContext(): ClientToolContext {
       return true;
     },
     onSaveFact: (text, category) => profile.addFact(text, category as never),
-    onForget: () => { conv.clearAll(); ui.resetView(); sessionHistory.startNew(); interaction.clear(); },
-    onClearHighlight: () => ui.clearHighlight(),
-    onGetUserHighlights: () => ui.getUserHighlights(),
+    onRemoveHighlights: (ids) => ui.removeHighlights(ids),
+    onGetHighlights: () => ui.getHighlights(),
     onAddToCart: (id, qty = 1) => {
       const product = ui.getProduct(id);
       if (product) { cart.addItem(product, qty); toasts.success(`Added ${product.name} to cart`); return true; }
