@@ -471,6 +471,13 @@ class LiveVoiceStore {
 
     if (functionCalls.some(c => c.name === "live_end_session")) {
       this.pendingDisconnect = true;
+      // Fallback: disconnect after 3s even if turnComplete never arrives
+      setTimeout(() => {
+        if (this.pendingDisconnect) {
+          this.pendingDisconnect = false;
+          this.disconnect();
+        }
+      }, 3000);
     }
   }
 

@@ -64,7 +64,7 @@
     aspect-ratio: 4 / 3;
     z-index: 62;
     border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+    border: 2px solid color-mix(in srgb, var(--color-border) 50%, transparent);
     overflow: hidden;
     cursor: grab;
     touch-action: none;

@@ -202,6 +202,24 @@ describe("executeClientTool", () => {
     expect(typeof result.response.message).toBe("string");
   });
 
+  test("order_create rejects incomplete args before any upstream call", async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = ((() => { fetchCalled = true; return Promise.reject(new Error("should not fetch")); }) as unknown) as typeof fetch;
+    try {
+      const result = await executeClientTool(
+        { id: "oc-bad", name: "order_create", args: { cart: [], recipient_name: "Thoa" } },
+        makeMockCtx(),
+      );
+      expect(result.response.error).toContain("Cannot create order");
+      expect(result.response.error).toContain("recipient_phone");
+      expect(result.response.error).toContain("delivery_date");
+      expect(fetchCalled).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("memory_save_fact calls onSaveFact", async () => {
     let savedText = "";
     const ctx = { ...makeMockCtx(), onSaveFact: (text: string) => { savedText = text; } };
@@ -497,5 +515,13 @@ describe("prompt builder", () => {
     const prompt = buildTextPrompt({ agentId: "ruka", language: "english" });
     expect(prompt).toContain("TOOL RESULTS ARE SHOWN IN THE UI");
     expect(prompt).toContain("Do NOT repeat");
+  });
+  test("order flow gates panel_verify before asking to place the order", () => {
+    const prompt = buildTextPrompt({ agentId: "ruka", language: "english" });
+    expect(prompt).toContain("VERIFY BEFORE YOU ASK");
+    expect(prompt).toContain("panel_verify");
+    expect(prompt).toContain("this is the GATE");
+    // both text and live modes carry the gate (shared base prompt)
+    expect(buildLivePrompt({ agentId: "mithu", language: "english" })).toContain("VERIFY BEFORE YOU ASK");
   });
 });

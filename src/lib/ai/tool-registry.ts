@@ -60,6 +60,44 @@ function hasOrderTrackingCache(order: CompletedOrderRecord | undefined): boolean
 
 let orderCreateInFlight = false;
 
+// Hard pre-flight check for order_create: rejects incomplete/invalid args
+// before any upstream call, so an order can never be dispatched with missing
+// data — defence in depth on top of the prompt's panel_verify gate.
+function validateOrderArgs(args: Record<string, unknown>): { ok: true } | { ok: false; error: string } {
+  const missing: string[] = [];
+  const invalid: string[] = [];
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+  const cart = Array.isArray(args.cart) ? args.cart : [];
+  if (cart.length === 0) missing.push("cart");
+  cart.forEach((item, i) => {
+    const it = (item ?? {}) as Record<string, unknown>;
+    if (!str(it.product_id)) missing.push(`cart[${i}].product_id`);
+    const qty = Number(it.quantity ?? 1);
+    if (!Number.isFinite(qty) || qty < 1) invalid.push(`cart[${i}].quantity (must be >= 1)`);
+  });
+
+  if (!str(args.recipient_name)) missing.push("recipient_name");
+  if (!str(args.sender_name)) missing.push("sender_name");
+  if (!str(args.street_address)) missing.push("street_address");
+  if (!str(args.delivery_city)) missing.push("delivery_city");
+
+  const phone = str(args.recipient_phone);
+  if (!phone) missing.push("recipient_phone");
+  else if (phone.replace(/\D/g, "").length < 7) invalid.push("recipient_phone (too short)");
+
+  const date = str(args.delivery_date);
+  if (!date) missing.push("delivery_date");
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) invalid.push("delivery_date (must be YYYY-MM-DD)");
+  else if (new Date(date + "T00:00:00").getTime() < new Date(new Date().toDateString()).getTime()) invalid.push("delivery_date (must be today or a future date)");
+
+  const parts: string[] = [];
+  if (missing.length) parts.push(`missing: ${missing.join(", ")}`);
+  if (invalid.length) parts.push(`invalid: ${invalid.join(", ")}`);
+  if (parts.length) return { ok: false, error: `Cannot create order — ${parts.join("; ")}. Fill the missing/invalid fields with panel_fill_field and run panel_verify before retrying.` };
+  return { ok: true };
+}
+
 
 export type ToolParam = ReturnType<typeof param>;
 
@@ -444,6 +482,8 @@ export const TOOLS: Record<string, ToolDefinition> = {
     ui: { icon: Send, label: "Creating order" },
     category: "shopping",
     executeClient: async (args, ctx) => {
+      const check = validateOrderArgs(args);
+      if (!check.ok) return { error: check.error };
       if (orderCreateInFlight) {
         throw new Error("Order creation is already in progress. Wait for it to finish before retrying.");
       }
