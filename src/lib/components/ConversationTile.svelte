@@ -13,7 +13,7 @@
   import AgentOrb from "./AgentOrb.svelte";
 
   import { useChat } from "$lib/stores/chat.svelte";
-  import { Copy, Brain, ChevronDown, ArrowUp } from "@lucide/svelte";
+  import { Copy, Brain, ArrowUp, Minimize2 } from "@lucide/svelte";
   import { useUI } from "$lib/stores/ui.svelte";
   import { toasts } from "$lib/ui/toast";
   import ChatComposer from "./shell/ChatComposer.svelte";
@@ -261,7 +261,7 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
         {#if hasText}
           <ArrowUp class="h-4 w-4" />
         {:else}
-          <ChevronDown class="h-4 w-4" />
+          <Minimize2 class="h-4 w-4" />
         {/if}
       </button>
     </div>
@@ -517,6 +517,7 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
   .conv-bottom {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.375rem;
     padding: 0.5rem 0.75rem;
   }
