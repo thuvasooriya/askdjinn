@@ -232,15 +232,15 @@
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Wand2 size={18} /></div>
-            <div class="feature-text">Your laziness is our command. Tell Djinn what you want and watch it check out.</div>
+            <div class="feature-text">Your laziness is our command. Tell us what to buy and watch us check out.</div>
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Eye size={18} /></div>
-            <div class="feature-text">Upload a screenshot. Let Djinn do the visual matchmaking and deal-hunting.</div>
+            <div class="feature-text">Upload a screenshot. Let us do the visual matchmaking and deal-hunting.</div>
           </div>
           <div class="feature-tile">
             <div class="feature-icon"><Brain size={18} /></div>
-            <div class="feature-text">Anniversaries, nut allergies, and your absolute deal-breakers. Djinn never forgets.</div>
+            <div class="feature-text">Need to send a cake to win your ex back? Just tell us, we'll handle the rest.</div>
           </div>
         </div>
 

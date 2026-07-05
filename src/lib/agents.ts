@@ -43,7 +43,7 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   ruka: {
     id: "ruka",
     name: "Ruka",
-    tagline: "Your shopping partner-in-crime",
+    tagline: "Shopping partner-in-crime",
     description: "Caring, enthusiastic, and loaded with local slang. Like your best friend who knows the absolute best spots.",
     icon: "flame",
     orbShape: { blobSize: 0.40, soft: 0.28, morphSpeed: 1.3, breathe: 0.03, glow: 0.90, sat: 1.15 },
@@ -115,7 +115,7 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   kavi: {
     id: "kavi",
     name: "Kavi",
-    tagline: "The shopping curator",
+    tagline: "The shopping romantic",
     description: "Artistic, romantic, and speaks in metaphors. Curates every basket like it's heading to a gallery.",
     icon: "flower",
     orbShape: { blobSize: 0.38, soft: 0.30, morphSpeed: 0.9, breathe: 0.025, glow: 0.85, sat: 1.1 },

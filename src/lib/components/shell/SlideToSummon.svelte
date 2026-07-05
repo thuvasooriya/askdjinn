@@ -133,13 +133,33 @@
     font-family: var(--font-display);
     font-size: var(--fs-md);
     font-weight: 600;
-    color: var(--color-muted-foreground);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     pointer-events: none;
     transition: opacity 0.1s;
     position: relative;
     z-index: 2;
+    background: linear-gradient(
+      to left,
+      var(--color-primary) 0%,
+      var(--color-primary) 40%,
+      color-mix(in srgb, var(--color-primary) 20%, white) 50%,
+      var(--color-primary) 60%,
+      var(--color-primary) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: sweep 3s linear infinite;
+  }
+  
+  @keyframes sweep {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
   }
   
   .swipe-glow {
