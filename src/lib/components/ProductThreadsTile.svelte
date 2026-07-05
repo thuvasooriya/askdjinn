@@ -57,6 +57,23 @@
     }
     return [...agentPicks, ...userPicks, ...rest];
   }
+
+  // All highlighted products (agent picks first, then user highlights) across
+  // every thread, deduped by id — pinned to the top of the product pane so the
+  // best matches stay prominent regardless of which query surfaced them.
+  const highlightedProducts = $derived.by(() => {
+    const seen = new Set<string>();
+    const agentPicks: Product[] = [];
+    const userPicks: Product[] = [];
+    for (const thread of ui.searchThreads) {
+      for (const p of thread.products) {
+        if (seen.has(p.id)) continue;
+        if (ui.highlightedIds.has(p.id)) { seen.add(p.id); agentPicks.push(p); }
+        else if (ui.userHighlights.has(p.id)) { seen.add(p.id); userPicks.push(p); }
+      }
+    }
+    return [...agentPicks, ...userPicks];
+  });
   function handleClick(product: Product) {
     interaction.onClick(product);
     ui.openProductDetail(product.id);
@@ -91,7 +108,31 @@
   </div>
 
   <div class="threads-scroll">
-    {#if ui.searchThreads.length === 0}
+    {#if ui.searchThreads.length > 1 && highlightedProducts.length > 0}
+      <div class="thread-grid highlights-grid">
+        {#each highlightedProducts as product (product.id)}
+          {@const isHighlighted = ui.highlightedIds.has(product.id)}
+          {@const isUserHighlighted = ui.userHighlights.has(product.id)}
+          {@const annotation = ui.annotations.get(product.id)}
+          <div class="thread-product" data-product-id={product.id}>
+            <ProductCard
+              {product}
+              highlighted={isHighlighted}
+              userHighlighted={isUserHighlighted}
+              {annotation}
+              onClick={handleClick}
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
+    {#if ui.noResultsQuery}
+      <div class="threads-no-results">
+        <Search class="h-4 w-4" />
+        <p>No results for <strong>{ui.noResultsQuery}</strong> — try a broader search or a different category.</p>
+      </div>
+    {/if}
+    {#if ui.searchThreads.length === 0 && !ui.noResultsQuery}
       <div class="threads-empty">
         <Search class="h-6 w-6" />
         <p>Product results appear here after a search.</p>
@@ -207,6 +248,19 @@
     text-align: center;
   }
 
+  .threads-no-results {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    margin: 0.25rem 0 0.5rem;
+    border-radius: var(--radius-md);
+    background: var(--color-muted);
+    color: var(--color-muted-foreground);
+    font-size: var(--fs-sm);
+  }
+  .threads-no-results strong { color: var(--color-foreground); font-weight: 600; }
+
   .thread-section {
     display: flex;
     flex-direction: column;
@@ -216,6 +270,11 @@
     background: var(--color-surface-elevated);
     padding: 0.5rem;
     box-shadow: var(--shadow-card);
+  }
+  .highlights-grid {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .thread-bar {

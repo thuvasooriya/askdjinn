@@ -236,7 +236,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
 
   product_search: {
     name: "product_search",
-    description: "Search Kapruka's catalog. Results appear in the product grid automatically. Use this before recommending any product.",
+    description: "Search Kapruka's catalog; results appear in the product grid automatically. ALWAYS provide a descriptive `q` query (e.g. 'gift for her', 'birthday cake', 'rose bouquet') — the upstream catalog requires a text query, so category-only searches with empty `q` fail or return nothing. Prefer concrete phrases over single generic words ('flowers', 'chocolate'), which often return 0. Use `category` only to NARROW a `q` search, never on its own. Use this before recommending any product; if it returns 0 or errors, retry with a different phrase before telling the user nothing is available.",
     parameters: {
       type: "object",
       properties: {
@@ -261,8 +261,19 @@ export const TOOLS: Record<string, ToolDefinition> = {
         limit: (args.limit as number) ?? 8,
       });
 
+      if (products.length === 0) {
+        return {
+          query: args.q,
+          category: args.category ?? null,
+          count: 0,
+          products: [],
+          empty: true,
+          message: "No products matched. Retry with a broader query, drop the category filter, or call product_list_categories for valid category slugs before telling the user nothing is available.",
+        };
+      }
       return {
         query: args.q,
+        category: args.category ?? null,
         count: products.length,
         products: products.slice(0, 6).map(p => ({
           id: p.id, name: p.name, price: p.price, currency: p.currency,

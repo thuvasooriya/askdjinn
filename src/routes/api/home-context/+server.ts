@@ -118,7 +118,7 @@ function greetingRulesBlock(body: HomeContextInput): string {
 // Greeting-only prompt (used on cache hit, when summary + suggestions are
 // already cached). Mirrors the former /api/home-greeting contract exactly.
 function buildGreetingOnlyPrompt(body: HomeContextInput, styleCue: string, timeOfDay: string, today: string): string {
-  return `You are ${body.agentName}, a Sri Lankan AI shopping concierge for Kapruka.com.
+  return `You are ${body.agentName}, an AI shopping concierge working inside Djinn — Sri Lanka's full-featured shopping app. You connect users with products from Kapruka's catalog.
 Write ONE short greeting line for the home screen.
 
 ${greetingRulesBlock(body)}
@@ -139,7 +139,7 @@ Return ONLY the greeting line.`;
 // JSON object.
 function buildFullPrompt(body: HomeContextInput, styleCue: string, angle: string, timeOfDay: string, today: string): string {
   const iconList = SUGGESTION_ICON_KEYS.map((k) => `${k} (${SUGGESTION_ICON_HINTS[k]})`).join(", ");
-  return `You are ${body.agentName}, a Sri Lankan AI shopping concierge for Kapruka.com.
+  return `You are ${body.agentName}, an AI shopping concierge working inside Djinn — Sri Lanka's full-featured shopping app. You connect users with products from Kapruka's catalog.
 Personality: ${body.agentTagline}.
 
 Generate the home screen content as ONE JSON object. Return ONLY the JSON object -- no markdown fences, no prose before or after.

@@ -95,10 +95,10 @@ const dateFuture = (v: unknown): string | null => {
 // ── Contracts ──────────────────────────────────────────────────────────────
 
 export const CONTRACTS: Record<PanelType, PanelContract> = {
-  products:         { type: "products", instances: "multiple", fillable: false, layoutPreference: ["landscape", "square", "portrait"], minWidth: 420, minHeight: 320, icon: "layers" },
+  products:         { type: "products", instances: "single", fillable: false, layoutPreference: ["landscape", "square", "portrait"], minWidth: 420, minHeight: 320, icon: "layers" },
   conversation:     { type: "conversation", instances: "single", fillable: false, layoutPreference: ["portrait", "landscape"], minWidth: 360, minHeight: 320, icon: "message-square" },
   cart:             { type: "cart", instances: "single", fillable: false, layoutPreference: ["portrait", "compact"], minWidth: 320, minHeight: 260, icon: "shopping-bag" },
-  "product-detail": { type: "product-detail", instances: "multiple", fillable: false, layoutPreference: ["landscape", "portrait", "compact"], minWidth: 320, minHeight: 280, icon: "eye" },
+  "product-detail": { type: "product-detail", instances: "single", fillable: false, layoutPreference: ["landscape", "portrait", "compact"], minWidth: 320, minHeight: 280, icon: "eye" },
   sessions:         { type: "sessions", instances: "single", fillable: false, layoutPreference: ["portrait", "landscape"], minWidth: 320, minHeight: 280, icon: "history" },
   orders:           { type: "orders", instances: "single", fillable: false, layoutPreference: ["portrait", "landscape", "compact"], minWidth: 340, minHeight: 280, icon: "package", actions: { "refresh-status": { run: (_ctx) => { /* wired in component via panel_click_action */ return { refreshing: true }; }, destructive: false } } },
   "address-book":   { type: "address-book", instances: "single", fillable: true, layoutPreference: ["portrait", "compact", "landscape"], minWidth: 320, minHeight: 280, icon: "map-pin", fields: [

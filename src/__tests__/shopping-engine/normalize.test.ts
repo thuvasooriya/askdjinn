@@ -42,6 +42,22 @@ describe("normalizeProductSearch", () => {
     expect(result.data.products[0].inStock).toBe(true);
   });
 
+  test("never turns a no-results/error message into a fake product", () => {
+    const cases = [
+      "No products found for 'gift' in category 'cakes'.",
+      "No results found.",
+      "0 results",
+      "Rate limit exceeded, please wait a moment",
+      "Category 'cakes' not found",
+    ];
+    for (const text of cases) {
+      const result = normalizeProductSearch(text);
+      expect(result.ok, text).toBe(true);
+      if (!result.ok) continue;
+      expect(result.data.products, text).toEqual([]);
+    }
+  });
+
   test("parses structuredContent results", () => {
     const result = normalizeProductSearch({
       structuredContent: { results: [{ id: "P2", name: "Flowers", price: "6010", currency: "LKR", inStock: false }] },

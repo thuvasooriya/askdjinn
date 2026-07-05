@@ -295,12 +295,17 @@ function getNestedString(value: unknown, keys: string[]) {
 
 function parseProductsFromText(text: string): Product[] {
   if (!text) return [];
-  if (/(rate limit|error|failed|too many requests|wait a moment)/i.test(text)) return [];
+  // Never turn status/error/no-results messages into fake product cards.
+  if (/(rate limit|error|failed|too many requests|wait a moment|no (?:products\s+)?results?(?:\s+found)?|not\s+found|nothing\s+(?:found|available)|couldn'?t\s+find|unavailable|0\s+results)/i.test(text)) return [];
   return text.split("\n").flatMap((line, index) => {
     const name = line.replace(/^[-*\d.\s]+/, "").trim();
     if (!name || name.length < 8) return [];
+    // Text fallback is only trustworthy when the line carries a price token;
+    // otherwise it is prose (e.g. a server status message), not a product.
+    const priceMatch = name.match(/(?:LKR|Rs\.?|USD)\s*[\d,.]+/i);
+    if (!priceMatch) return [];
     const currency = inferCurrency(name);
-    return [{ id: `text-${index}`, name: name.slice(0, 120), price: parsePrice(name.match(/(?:LKR|Rs\.?|USD)\s*[\d,.]+/i)?.[0], currency), currency, inStock: !/out of stock/i.test(name) }];
+    return [{ id: `text-${index}`, name: name.slice(0, 120), price: parsePrice(priceMatch[0], currency), currency, inStock: !/out of stock/i.test(name) }];
   }).slice(0, 8);
 }
 

@@ -29,8 +29,8 @@ describe("panel-registry pure logic", () => {
   });
 
   test("canOpen returns null for multiple-instance even if one exists", () => {
-    const existing = createPanel("product-detail", { kind: "static" });
-    expect(canOpen([existing], "product-detail")).toBeNull();
+    const existing = createPanel("order-tracking", { kind: "dynamic" });
+    expect(canOpen([existing], "order-tracking")).toBeNull();
   });
 
   test("applyFill validates and writes valid values", () => {

@@ -323,7 +323,7 @@ class LiveVoiceStore {
       const history = this.conv.toContextString();
       const greeting = history
         ? `Hi, let's continue. ${history.includes("User:") ? "You were asking about something just now. How can I help with that?" : "What can I help you find today?"}`
-        : `Hi, I'm ${this.profile.agent.name}. What can I help you find on Kapruka today?`;
+        : `Hi, I'm ${this.profile.agent.name}. What can I help you find today?`;
       const langInstruction = this.profile.language === "sinhala"
         ? "Greet in Sinhala."
         : this.profile.language === "tamil"

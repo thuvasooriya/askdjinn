@@ -191,6 +191,17 @@ describe("executeClientTool", () => {
     expect(highlighted).toEqual([{ id: "a", reason: "Best value" }, { id: "b" }]);
   });
 
+  test("product_search returns an explicit empty signal when no products match", async () => {
+    const result = await executeClientTool(
+      { id: "ps-empty", name: "product_search", args: { category: "cakes" } },
+      makeMockCtx(),
+    );
+    expect(result.response.count).toBe(0);
+    expect(result.response.products).toEqual([]);
+    expect(result.response.empty).toBe(true);
+    expect(typeof result.response.message).toBe("string");
+  });
+
   test("memory_save_fact calls onSaveFact", async () => {
     let savedText = "";
     const ctx = { ...makeMockCtx(), onSaveFact: (text: string) => { savedText = text; } };

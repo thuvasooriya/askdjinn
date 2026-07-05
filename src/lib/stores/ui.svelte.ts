@@ -148,6 +148,9 @@ class UIStore {
   askUser = $state<{ question: string; options: string[]; resolve: (answer: string) => void } | null>(null);
   debugChatOpen = $state(false);
   searchError = $state<string | null>(null);
+
+  /** Query that last returned zero results — shown as a transient hint, never as a thread. */
+  noResultsQuery = $state<string | null>(null);
   lastOrder = $state<{ orderNumber?: string; orderRef?: string; paymentUrl?: string; expiresAt?: string } | null>(null);
 
   // Chat is visible only when the conversation panel is actively rendered.
@@ -567,6 +570,13 @@ class UIStore {
   }
 
   setSearchResults(products: Product[], query: string = "") {
+    if (products.length === 0) {
+      // Don't pollute the threads list with an empty result; surface it as a
+      // transient no-results hint instead. The tool result carries the signal.
+      this.noResultsQuery = query || null;
+      return;
+    }
+    this.noResultsQuery = null;
     const searchedAt = Date.now();
     const existing = this.searchThreads.find(t => t.query === query);
     const nextThread = { id: existing?.id ?? crypto.randomUUID(), query, products, searchedAt };
@@ -647,16 +657,17 @@ class UIStore {
       limit: criteria.limit ?? this.searchCriteria.limit,
     };
     this.searchError = null;
-    await this.triggerSearch();
+    this.noResultsQuery = null;
+    const products = await this.triggerSearch();
     if (this.searchError) throw new Error(this.searchError);
-    return this.searchResults;
+    return products;
   }
 
   commitSearch() {
     persist.save(SEARCH_STORE_ID, VERSION, this.searchCriteria);
   }
 
-  async triggerSearch() {
+  async triggerSearch(): Promise<Product[]> {
     this.searchIsLoading = true;
     this.commitSearch();
     try {
@@ -664,7 +675,7 @@ class UIStore {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          q: this.searchCriteria.q || "gift",
+          q: this.searchCriteria.q || (this.searchCriteria.category ? "" : "gift"),
           category: this.searchCriteria.category,
           minPrice: this.searchCriteria.minPrice,
           maxPrice: this.searchCriteria.maxPrice,
@@ -678,7 +689,8 @@ class UIStore {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Search failed");
       const products = (data.products ?? []) as Product[];
-      this.setSearchResults(products, this.searchCriteria.q || "gift");
+      this.setSearchResults(products, this.searchCriteria.q || this.searchCriteria.category || "gift");
+      return products;
     } catch (err) {
       console.error("Search failed:", err);
       this.searchError = err instanceof Error ? err.message : String(err);

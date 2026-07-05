@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
     if (!query.ok) return Response.json({ error: query.error.message }, { status: 400 });
 
     const raw = await callMcpTool("kapruka_search_products", {
-      q: query.data.q,
+      q: query.data.q || (query.data.category ?? ""),
       category: query.data.category ?? null,
       min_price: query.data.minPrice ?? null,
       max_price: query.data.maxPrice ?? null,

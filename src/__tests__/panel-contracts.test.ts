@@ -15,9 +15,13 @@ describe("panel-contracts", () => {
     expect(CONTRACTS["address-select"].instances).toBe("single");
     expect(CONTRACTS["address-form"].instances).toBe("single");
   });
-  test("browse panels are multiple-instance", () => {
-    expect(CONTRACTS["product-detail"].instances).toBe("multiple");
+  test("products and product-detail are single-instance (backed by global singleton state)", () => {
+    expect(CONTRACTS["products"].instances).toBe("single");
+    expect(CONTRACTS["product-detail"].instances).toBe("single");
+  });
+  test("data-backed dynamic panels are multiple-instance", () => {
     expect(CONTRACTS["order-tracking"].instances).toBe("multiple");
+    expect(CONTRACTS["delivery-info"].instances).toBe("multiple");
   });
   test("create-order declares required fillable fields", () => {
     const fields = CONTRACTS["create-order"].fields ?? [];
