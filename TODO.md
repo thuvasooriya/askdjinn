@@ -4,6 +4,7 @@ what's the fun in that.
 
 - [ ] take photo option is not rendering correctly
 - [ ] check and correct image input in llm text mode
+- [ ] chat panel expansion from agnet bar takes 2 clicks sometimes
 
 - [ ] tutorial
 - [ ] tool display cards

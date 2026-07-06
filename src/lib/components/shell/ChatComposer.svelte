@@ -206,6 +206,7 @@
     .composer {
         display: flex;
         flex-direction: column;
+        width: 100%;
         gap: 0.5rem;
         padding: 0.125rem 0.5rem 0.125rem 0.75rem;
         border: 1px solid var(--color-border);
@@ -225,16 +226,19 @@
         background: color-mix(in srgb, var(--color-surface) 90%, transparent);
     }
 
-    /* ── Panel variant ── percentage-based max-width (same strategy as
-       .bubble--assistant: 80% by default, full width on narrow panels). ── */
+    /* ── Panel variant ── percentage-based max-width ──
+       Narrow (<420px)  : 100% — fill the panel
+       Medium           : 80%
+       Large (≥768px)   : 40% — compact input bar on wider panels  ── */
     .composer--panel {
         min-width: 5rem;
         max-width: 80%;
     }
     @container (max-width: 420px) {
-        .composer--panel {
-            max-width: 100%;
-        }
+        .composer--panel { max-width: 100%; }
+    }
+    @container (min-width: 768px) {
+        .composer--panel { max-width: 40%; }
     }
 
     /* ── Floating variant ── flexible pill deployed by AgentBar. ── */

@@ -24,6 +24,7 @@
   import { getCreatedOrderFromToolPart } from "$lib/order/order-render";
 import DeliveryCheckCard from "$lib/components/DeliveryCheckCard.svelte";
 import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
+import CartAddCard from "$lib/components/CartAddCard.svelte";
 
   const reducedMotion = $derived(typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   let { liveActive = false }: { liveActive?: boolean } = $props();
@@ -161,14 +162,18 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
                   {@const deliveryCheck = getDeliveryCheckFromToolPart(part)}
                   {#if deliveryCheck}
                     <DeliveryCheckCard city={deliveryCheck.city} rate={deliveryCheck.rate} dates={deliveryCheck.dates} />
+                  {:else if part.name === "cart_add"}
+                    {@const cartResult = part.result as { results?: Array<{ product_id: string; quantity: number; added: boolean }>; partial?: boolean; error?: string } | undefined}
+                    {#if cartResult?.results?.length}
+                      <CartAddCard results={cartResult.results} partial={cartResult.partial} error={cartResult.error} />
+                    {:else}
+                      <div class="chip chip--{part.status}" role="button" tabindex="0" onclick={() => selectedPart = part} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPart = part; } }}>
+                        {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.summary ?? part.label ?? part.name} />{/if}
+                        <span class="chip-text">{part.summary ?? part.label ?? part.name}</span>
+                      </div>
+                    {/if}
                   {:else}
-                    <div
-                      class="chip chip--{part.status}"
-                      role="button"
-                      tabindex="0"
-                      onclick={() => selectedPart = part}
-                      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPart = part; } }}
-                    >
+                    <div class="chip chip--{part.status}" role="button" tabindex="0" onclick={() => selectedPart = part} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPart = part; } }}>
                       {#if part.status === "pending"}<BrailleSpinner name="orbit" size="sm" label={part.summary ?? part.label ?? part.name} />{/if}
                       <span class="chip-text">{part.summary ?? part.label ?? part.name}</span>
                     </div>
@@ -337,6 +342,10 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
     border-bottom-right-radius: 0.375rem;
   }
   .bubble--assistant {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
     max-width: 80%;
     background: color-mix(in srgb, var(--color-surface-elevated) 85%, transparent);
     backdrop-filter: blur(12px);
@@ -349,7 +358,7 @@ import { getDeliveryCheckFromToolPart } from "$lib/delivery/delivery-render";
     }
   }
   .user-text { white-space: pre-wrap; }
-  .bubble-text { overflow-wrap: anywhere; }
+  .bubble-text { overflow-wrap: anywhere; width: 100%; }
   .bubble-text :global(p) { margin: 0 0 0.5rem; }
   .bubble-text :global(p:last-child) { margin-bottom: 0; }
   .bubble-text :global(ul) { padding-left: 1rem; margin: 0.25rem 0; }

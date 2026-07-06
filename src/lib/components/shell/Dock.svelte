@@ -147,6 +147,7 @@
 {#if ui.isSplit || !ui.agentInputOpen}
     <div
         class="options-menu-container"
+        class:panel-open={ui.agentInputOpen}
         bind:this={dockEl}
         transition:fade={{ duration: 150 }}
     >
@@ -359,5 +360,9 @@
         flex-direction: row;
         align-items: center;
         gap: 0.5rem;
+    }
+    /* Hide the home + options buttons when chat panel is open and screen <md */
+    @media (max-width: 767px) {
+        .options-menu-container.panel-open { display: none; }
     }
 </style>
