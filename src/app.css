@@ -102,6 +102,13 @@
         color-mix(in srgb, var(--color-primary) 8%, transparent) 0%,
         transparent 60%
     );
+    /* Unified frosted-glass effect. Every glass surface references this so the
+       blur/saturation is consistent everywhere, and — because the value lives
+       behind a custom property — @tailwindcss/vite's Lightning CSS pass cannot
+       dedupe the -webkit-/unprefixed backdrop-filter pair (it only folds
+       literal values), so the frost survives the production build. The orb is
+       intentionally exempt and keeps its own treatment. */
+    --frost: blur(16px) saturate(150%);
     /* Back-compat alias (one component still references --radius) */
     --radius: var(--radius-lg);
 }
@@ -289,9 +296,9 @@
 @layer components {
     /* Glass effects — derive from surface so they follow any theme */
     .glass {
-        background: color-mix(in srgb, var(--color-surface) 70%, transparent);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        background: color-mix(in srgb, var(--color-surface) 95%, transparent);
+        backdrop-filter: var(--frost);
+        -webkit-backdrop-filter: var(--frost);
     }
     /* Gradient */
     .gradient-primary {
